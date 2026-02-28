@@ -2,7 +2,7 @@
  * bs18b20.h
  *
  *  Created on: Feb 14, 2026
- *      Author: boron
+ *      Author: ChatDeepseekGPTCapilot
  */
 
 #ifndef DS18B20_BS18B20_H_
