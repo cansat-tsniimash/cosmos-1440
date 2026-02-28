@@ -20,7 +20,7 @@ BME280_INTF_RET_TYPE bmp280_read_reg(uint8_t reg_addr, uint8_t *reg_data, uint32
 		return transmit;
 //		this
 	}
-	HAL_StatusTypeDef receive = HAL_I2C_Master_Receive(ptr->hi2c1, ptr->addr, reg_data, len, 100);
+	HAL_StatusTypeDef receive = HAL_I2C_Master_Receive(ptr->hi2c1, ptr->addr, reg_data, len, 150);
 
 	if (receive != HAL_OK)
 	{
