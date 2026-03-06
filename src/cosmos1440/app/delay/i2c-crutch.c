@@ -6,7 +6,7 @@
  */
 
 #include <stdint.h>
-#include "stm32f4xx.h"
+#include "i2c-crutch.h"s
 
 #define SCL_PIN  GPIO_PIN_8
 #define SCL_PORT GPIOB
