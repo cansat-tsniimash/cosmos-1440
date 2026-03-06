@@ -1,14 +1,13 @@
 /*
  * bmp280.c
  *
- *  Created on: Feb 27, 202
+ *  Created on: Feb 27, 2027
  *      Author: ChatDeepseekGPTCapilot
  */
-#include "stm32f1xx.h"
+
 #include "BPM280/bmp280.h"
 #include "delay/dwt_delay.h"
-
-// this
+#include "delay/i2c-crutch.h"
 
 
 BME280_INTF_RET_TYPE bmp280_read_reg(uint8_t reg_addr, uint8_t *reg_data, uint32_t len, void *intf_ptr)
@@ -17,15 +16,21 @@ BME280_INTF_RET_TYPE bmp280_read_reg(uint8_t reg_addr, uint8_t *reg_data, uint32
 	HAL_StatusTypeDef transmit = HAL_I2C_Master_Transmit(ptr->hi2c1, ptr->addr, &reg_addr, 1, 100);
 	if (transmit != HAL_OK)
 	{
+		if (transmit == HAL_BUSY)
+		{
+			I2C_ClearBusyFlagErratum(ptr->hi2c1, 100);
+		}
 		return transmit;
-//		this
 	}
 	HAL_StatusTypeDef receive = HAL_I2C_Master_Receive(ptr->hi2c1, ptr->addr, reg_data, len, 150);
 
 	if (receive != HAL_OK)
 	{
+		if (transmit == HAL_BUSY)
+		{
+			I2C_ClearBusyFlagErratum(ptr->hi2c1, 100);
+		}
 		return receive;
-//		this
 	}
 	return HAL_OK;
 }
@@ -43,6 +48,7 @@ BME280_INTF_RET_TYPE bmp280_write_reg (uint8_t reg_addr, const uint8_t *reg_data
 
 		if (transmit != HAL_OK)
 		{
+			I2C_ClearBusyFlagErratum(ptr->hi2c1, 100);
 			return transmit;
 		}
 	}

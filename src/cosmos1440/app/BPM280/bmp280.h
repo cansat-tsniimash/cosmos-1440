@@ -5,12 +5,10 @@
  *      Author: ChatDeepseekGPTCapilot
  */
 
-
-
-
 #ifndef BMP280_BMP280_H_
 #define BMP280_BMP280_H_
 
+#include "stm32f1xx.h"
 #include "BPM280/bme280.h"
 
 typedef struct bmp280_bus_s
