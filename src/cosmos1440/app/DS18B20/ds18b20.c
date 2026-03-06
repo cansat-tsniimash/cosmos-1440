@@ -6,7 +6,7 @@
  */
 
 
-#include "bs18b20.h"
+#include "DS18B20/ds18b20.h"
 
 /*	  HAL_GPIO_WritePin(DS18B20_GPIO_Port, DS18B20_Pin, GPIO_PIN_RESET);
 
