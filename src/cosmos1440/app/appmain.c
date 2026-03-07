@@ -10,6 +10,8 @@
 #include "neo6mv2/neo6mv2.h"
 #include "BPM280/bmp280.h"
 #include "LSM6DS3/lsm6ds3.h"
+#include "lis2mdl/lis2mdl_reg.h"
+#include "lis2mdl/lis2mdl.h"
 
 
 extern UART_HandleTypeDef huart1;
@@ -80,6 +82,26 @@ void appmain(void)
 	volatile float gyro[3] = {0};
 	volatile float acc[3] = {0};
 
+//	lis2mdl
+
+	lis2mdl_data__t lis2_bus;
+	lis2_bus.add = 0x1E << 1;
+	lis2_bus.hi2c1 = &hi2c1;
+
+	lis2mdl_ctx_t lis2mdl;
+
+	lis2mdl.handle = &lis2_bus;
+	lis2mdl.read_reg = lis2mdl_read;
+	lis2mdl.write_reg = lis2mdl_write;
+
+	lis2mdl_reset_set(&lis2mdl, 1);
+	lis2mdl_data_rate_set(&lis2mdl, LIS2MDL_ODR_50Hz);
+	lis2mdl_power_mode_set(&lis2mdl, LIS2MDL_HIGH_RESOLUTION);
+	lis2mdl_operating_mode_set(&lis2mdl, LIS2MDL_CONTINUOUS_MODE);
+
+	int16_t buf_lis2[3] = {0};
+	volatile float mag[3] = {0};
+
 
 	while (1)
 	{
@@ -92,6 +114,11 @@ void appmain(void)
 		{
 			acc[i] = lsm6ds3_from_fs16g_to_mg(buf_lsm_xl[i]) / 1000.0;
 			gyro[i] = lsm6ds3_from_fs125dps_to_mdps(buf_lsm_gy[i])/ 1000.0;
+		}
+		lis2mdl_magnetic_raw_get(&lis2mdl, buf_lis2);
+		for (int i = 0; i < 3; i++)
+		{
+			mag[i] = lis2mdl_from_lsb_to_mgauss(buf_lis2[i]);
 		}
 
 		for (int i = 0; i < 10; i++)
