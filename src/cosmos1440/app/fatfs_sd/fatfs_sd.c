@@ -551,4 +551,15 @@ DRESULT SD_disk_ioctl(BYTE drv, BYTE ctrl, void *buff)
 
 	return res;
 }
-//#endif
+
+
+void HAL_IncTick(void)
+{
+  uwTick += uwTickFreq;
+  if(Timer1 > 0){
+	  Timer1--;
+  }
+  if(Timer2 > 0){
+	  Timer2--;
+  }
+}
