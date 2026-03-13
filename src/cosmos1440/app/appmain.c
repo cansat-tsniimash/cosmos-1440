@@ -12,15 +12,49 @@
 #include "LSM6DS3/lsm6ds3.h"
 #include "lis2mdl/lis2mdl_reg.h"
 #include "lis2mdl/lis2mdl.h"
+#include "ff.h"
 
 
 extern UART_HandleTypeDef huart1;
 extern I2C_HandleTypeDef hi2c1;
 
+#pragma pack(push, 1)
+typedef struct {
+	uint16_t start;
+	uint16_t team_id;
+	uint16_t time;
+	int16_t temp;
+	uint32_t pressure; // давление
+	int16_t acc[3]; // ускорение
+	int16_t gyro[3]; // угловая скорость
+	uint8_t sum;
 
+	uint16_t number;
+	uint8_t status;
+	float width_gps;
+	float longitude_gps;
+	float height_gps;
+	uint8_t fix_gps;
+	uint16_t fotores;
+	int16_t mag[3];
+	int16_t ds18b20;
+	float quaternion_a;
+	float quaternion_b;
+	float quaternion_c;
+	float quaternion_d;
+	int16_t corner_right;
+	int16_t corner_left;
+	uint8_t cosmos1440_sum;
+} packet_t;
+#pragma pack(pop)
 
 void appmain(void)
 {
+	packet_t packet = {0};
+	packet.start = 0xAAAA;
+	packet.team_id = 0xBBBB;
+
+
 //	GPS
 	neo6mv2_Init();
 	__HAL_UART_ENABLE_IT(&huart1, UART_IT_RXNE);
@@ -101,6 +135,28 @@ void appmain(void)
 
 	int16_t buf_lis2[3] = {0};
 	volatile float mag[3] = {0};
+
+
+
+
+	// datchik
+
+	FATFS fleska;
+	FIL paket_fille;
+	char paker_path[] = "paket.bin";
+	FRESULT rizult_mount = f_mount(&fleska, "", 1);
+	FRESULT rizult_paket = 255;
+	UINT byte_count;
+
+	if (rizult_mount == FR_OK)
+	{
+		rizult_paket = f_open(&paket_fille, (const TCHAR*)&paker_path, FA_WRITE | FA_OPEN_ALWAYS | FA__WRITTEN);
+	}
+	if (rizult_paket == FR_OK)
+	{
+		rizult_paket = f_write(&paket_fille, &packet, sizeof(packet_t), &byte_count);
+	}
+	f_close(&paket_fille);
 
 
 	while (1)
