@@ -13,6 +13,7 @@
 #include "lis2mdl/lis2mdl_reg.h"
 #include "lis2mdl/lis2mdl.h"
 #include "ff.h"
+#include "ff_gen_drv.h"
 
 
 extern UART_HandleTypeDef huart1;
@@ -139,7 +140,7 @@ void appmain(void)
 
 
 
-	// datchik
+	// sd-card
 
 	FATFS fleska;
 	FIL paket_fille;
@@ -148,19 +149,41 @@ void appmain(void)
 	FRESULT rizult_paket = 255;
 	UINT byte_count;
 
-	if (rizult_mount == FR_OK)
-	{
-		rizult_paket = f_open(&paket_fille, (const TCHAR*)&paker_path, FA_WRITE | FA_OPEN_ALWAYS | FA__WRITTEN);
-	}
-	if (rizult_paket == FR_OK)
-	{
-		rizult_paket = f_write(&paket_fille, &packet, sizeof(packet_t), &byte_count);
-	}
-	f_close(&paket_fille);
+
 
 
 	while (1)
 	{
+
+
+		packet.number++;
+		if (rizult_mount != FR_OK)
+		{
+			f_mount(NULL, "", 1);
+			extern Disk_drvTypeDef disk;
+			disk.is_initialized[0] = 0;
+			rizult_mount = f_mount(&fleska, "", 1);
+		}
+
+		if (rizult_paket != FR_OK && rizult_mount == FR_OK)
+		{
+			if (rizult_paket != 255)
+				f_close(&paket_fille);
+			rizult_paket = f_open(&paket_fille, (const TCHAR*)&paker_path, FA_WRITE | FA_OPEN_ALWAYS | FA__WRITTEN);
+			rizult_mount = f_mount(&fleska, "", 1);
+		}
+		if (rizult_paket == FR_OK && rizult_mount == FR_OK)
+		{
+			rizult_paket = f_write(&paket_fille, &packet, sizeof(packet_t), &byte_count);
+			f_sync(&paket_fille);
+		}
+
+
+
+
+
+
+
 		bme280_get_sensor_data(BME280_PRESS | BME280_TEMP, &bmp_data, &bmp);
 
 		lsm6ds3_acceleration_raw_get(&lsm6ds3, buf_lsm_xl);
@@ -210,7 +233,6 @@ void appmain(void)
 
 		uint32_t rocket_timer = 0;
 		uint32_t light_timer = 0;
-
 
 /*		switch(stage)
 		{
