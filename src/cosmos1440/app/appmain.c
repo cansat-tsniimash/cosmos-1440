@@ -32,9 +32,9 @@ typedef struct {
 
 	uint16_t number;
 	uint8_t status;
-	float width_gps;
+	float latitude_gps;
 	float longitude_gps;
-	float height_gps;
+	float altitude_gps;
 	uint8_t fix_gps;
 	uint16_t fotores;
 	int16_t mag[3];
@@ -62,14 +62,13 @@ void appmain(void)
 	__HAL_UART_ENABLE_IT(&huart1, UART_IT_ERR);
 	GPS_Data gps_data;
 
-
-//	DS18B20
+//	DS18B20 - термометр
 
 	ds18b20_init(DS18B20_12_BIT);
 	uint32_t ds_stert_time = HAL_GetTick();
 	ds18b20_conv();
 
-	// BMP280
+// BMP280 - барометр/термометр
 
 	struct bme280_dev bmp;
 	bmp.intf = BME280_I2C_INTF;
@@ -91,9 +90,7 @@ void appmain(void)
 	bme280_set_sensor_settings(BME280_ALL_SETTINGS_SEL, &bmp);
 	bme280_set_sensor_mode(BME280_NORMAL_MODE, &bmp);
 
-
 	struct bme280_data bmp_data;
-
 
 //	lsm6ds3
 
@@ -117,6 +114,7 @@ void appmain(void)
 	volatile float gyro[3] = {0};
 	volatile float acc[3] = {0};
 
+
 //	lis2mdl
 
 	lis2mdl_data__t lis2_bus;
@@ -137,9 +135,6 @@ void appmain(void)
 	int16_t buf_lis2[3] = {0};
 	volatile float mag[3] = {0};
 
-
-
-
 	// sd-card
 
 	FATFS fleska;
@@ -149,37 +144,20 @@ void appmain(void)
 	FRESULT rizult_paket = 255;
 	UINT byte_count;
 
-
-
-
 	while (1)
 	{
+		//packet.mag[3] = mag;
+		//packet.gyro[3] = gyro;
+		//packet.acc[3] = acc;
+		//packet.latitude_gps = gps_data.latitude;
+		//packet.longitude_gps = gps_data.longitude;
+		//packet.altitude_gps = gps_data.altitude;
+		//packet.temp = ds18b20_read_temp();
+	//	packet.pressure =  TODO: ДОПИСАТЬ!!!
 
 
-		packet.number++;
-		if (rizult_mount != FR_OK)
-		{
-			f_mount(NULL, "", 1);
-			extern Disk_drvTypeDef disk;
-			disk.is_initialized[0] = 0;
-			rizult_mount = f_mount(&fleska, "", 1);
-		}
-
-		if (rizult_paket != FR_OK && rizult_mount == FR_OK)
-		{
-			if (rizult_paket != 255)
-				f_close(&paket_fille);
-			rizult_paket = f_open(&paket_fille, (const TCHAR*)&paker_path, FA_WRITE | FA_OPEN_ALWAYS | FA__WRITTEN);
-			rizult_mount = f_mount(&fleska, "", 1);
-		}
-		if (rizult_paket == FR_OK && rizult_mount == FR_OK)
-		{
-			rizult_paket = f_write(&paket_fille, &packet, sizeof(packet_t), &byte_count);
-			f_sync(&paket_fille);
-		}
-
-
-
+	//	TODO: передать, получаемые значения с датчика в структуру пакета!!!
+	//	не получается найти значение вывода функции.
 
 
 
@@ -188,12 +166,12 @@ void appmain(void)
 
 		lsm6ds3_acceleration_raw_get(&lsm6ds3, buf_lsm_xl);
 		lsm6ds3_angular_rate_raw_get(&lsm6ds3, buf_lsm_gy);
-
 		for (int i = 0; i < 3; i++)
 		{
 			acc[i] = lsm6ds3_from_fs16g_to_mg(buf_lsm_xl[i]) / 1000.0;
 			gyro[i] = lsm6ds3_from_fs125dps_to_mdps(buf_lsm_gy[i])/ 1000.0;
 		}
+
 		lis2mdl_magnetic_raw_get(&lis2mdl, buf_lis2);
 		for (int i = 0; i < 3; i++)
 		{
@@ -220,7 +198,7 @@ void appmain(void)
 
 		if (HAL_GetTick() - ds_stert_time >= 750)
 		{
-			ds18b20_read_temp();
+			packet.temp = ds18b20_read_temp();
 			ds_stert_time = HAL_GetTick();
 			ds18b20_conv();
 		}
@@ -277,6 +255,28 @@ void appmain(void)
 
 				break;
 		}*/
+		packet.number++;
+
+		if (rizult_mount != FR_OK)
+		{
+			f_mount(NULL, "", 1);
+			extern Disk_drvTypeDef disk;
+			disk.is_initialized[0] = 0;
+			rizult_mount = f_mount(&fleska, "", 1);
+		}
+
+		if (rizult_paket != FR_OK && rizult_mount == FR_OK)
+		{
+			if (rizult_paket != 255)
+				f_close(&paket_fille);
+			rizult_paket = f_open(&paket_fille, (const TCHAR*)&paker_path, FA_WRITE | FA_OPEN_ALWAYS | FA__WRITTEN);
+			rizult_mount = f_mount(&fleska, "", 1);
+		}
+		if (rizult_paket == FR_OK && rizult_mount == FR_OK)
+		{
+			rizult_paket = f_write(&paket_fille, &packet, sizeof(packet_t), &byte_count);
+			f_sync(&paket_fille);
+		}
 	}
 	return;
 }
