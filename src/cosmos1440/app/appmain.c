@@ -159,10 +159,9 @@ void appmain(void)
 	//	TODO: передать, получаемые значения с датчика в структуру пакета!!!
 	//	не получается найти значение вывода функции.
 
-
-
-
 		bme280_get_sensor_data(BME280_PRESS | BME280_TEMP, &bmp_data, &bmp);
+
+
 
 		lsm6ds3_acceleration_raw_get(&lsm6ds3, buf_lsm_xl);
 		lsm6ds3_angular_rate_raw_get(&lsm6ds3, buf_lsm_gy);
@@ -191,7 +190,7 @@ void appmain(void)
 		printf("altitude = %f\n", gps_data.altitude);
 		printf("fixQuality = %i\n", gps_data.fixQuality);
 
-//		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
 //		HAL_Delay(100);
 //		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
 //		HAL_Delay(100);
@@ -207,7 +206,7 @@ void appmain(void)
 
 		// Алгоритм работы аппарата.
 
-		uint8_t stage = 0;
+
 
 		uint32_t rocket_timer = 0;
 		uint32_t light_timer = 0;
@@ -255,7 +254,11 @@ void appmain(void)
 
 				break;
 		}*/
+
 		packet.number++;
+		//packet.time
+		//packet.sum
+		//packet.sum
 
 		if (rizult_mount != FR_OK)
 		{
