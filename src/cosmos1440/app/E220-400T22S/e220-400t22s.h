@@ -65,7 +65,7 @@ typedef enum {
 
 typedef enum {
 	E220_RSSI_AMBIENT_NOISE_DISABLE = 0,
-	E220_RSSI,AMBIENT_NOISE_ENABLE = 1,
+	E220_RSSI_AMBIENT_NOISE_ENABLE = 1,
 } e220_rssi_ambient_noise_t;
 
 typedef enum {
@@ -74,5 +74,39 @@ typedef enum {
 	E220_TRANSMITTING_POWER_13DBM = 2,
 	E220_TRANSMITTING_POWER_10DBM = 3,
 } e220_transmitting_power_t;
+
+typedef enum {
+	E220_RSSI_DISABLE = 0,
+	E220_RSSI_ENABLE = 1,
+} e220_rssi_t;
+
+typedef enum {
+	E220_TRANSMITTING_METOD_TM = 0,
+	E220_TRANSMITTING_METOD_FT = 1,
+} e220_transmitting_metod_t;
+
+typedef enum {
+	E220_LBT_MODE_DISABLE = 0,
+	E220_LBT_MODE_ENABLE = 1,
+} e220_lbt_mode_t;
+
+typedef enum {
+	E220_WOR_CYCLE_500MS = 0,
+	E220_WOR_CYCLE_1000MS = 1,
+	E220_WOR_CYCLE_1500MS = 2,
+	E220_WOR_CYCLE_2000MS = 3,
+	E220_WOR_CYCLE_2500MS = 4,
+	E220_WOR_CYCLE_3000MS = 5,
+	E220_WOR_CYCLE_3500MS = 6,
+	E220_WOR_CYCLE_4000MS = 7,
+} e220_wor_cycle_t;
+
+void e220_set_channel(e220_bus_t* e220, uint8_t chanel);
+void e220_set_addr(e220_bus_t *bus, uint16_t addr);
+void e220_set_reg0(e220_bus_t* bus, e220_air_rate_t adr, e220_uart_rate_t spr, e220_serial_parity_t spt);
+void e220_set_reg1(e220_bus_t *bus, e220_sub_packet_t sub_packet, e220_rssi_ambient_noise_t rssi_ambient_noise, e220_transmitting_power_t power);
+void e220_set_reg3(e220_bus_t *bus, e220_rssi_t rssi_ambient_noise, e220_transmitting_metod_t metod, e220_lbt_mode_t lbt_mode, e220_wor_cycle_t cycle);
+void e220_change_mode(e220_bus_t* e220, e220_mode_t mode);
+void e220_send_packet(e220_bus_t* bus, uint8_t *reg_data, uint16_t len);
 
 #endif /* E220_400T22S_E220_400T22S_H_ */

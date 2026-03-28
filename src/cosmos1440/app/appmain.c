@@ -14,10 +14,12 @@
 #include "lis2mdl/lis2mdl.h"
 #include "ff.h"
 #include "ff_gen_drv.h"
+#include "E220-400T22S/e220-400t22s.h"
 
 
 extern UART_HandleTypeDef huart1;
 extern I2C_HandleTypeDef hi2c1;
+extern UART_HandleTypeDef huart2;
 
 #pragma pack(push, 1)
 typedef struct {
@@ -48,6 +50,7 @@ typedef struct {
 	uint8_t cosmos1440_sum;
 } packet_t;
 #pragma pack(pop)
+
 
 void appmain(void)
 {
@@ -135,6 +138,30 @@ void appmain(void)
 	int16_t buf_lis2[3] = {0};
 	volatile float mag[3] = {0};
 
+	// E220-400T22S
+
+	e220_bus_t e220;
+	e220.huart = &huart2;
+	e220.aux_pin = GPIO_PIN_3;
+	e220.aux_port = GPIOB;
+	e220.m0_pin = GPIO_PIN_1;
+	e220.m0_port = GPIOB;
+	e220.m1_pin = GPIO_PIN_0;
+	e220.m1_port = GPIOB;
+
+	e220_change_mode(&e220, E220_MODE_SM);
+	HAL_Delay(100);
+	e220_set_channel(&e220, 2);
+	HAL_Delay(50);
+	e220_set_addr(&e220, 0xAAAA);
+	HAL_Delay(50);
+	e220_set_reg0(&e220, E220_AIR_RATE_9P6K, E220_UART_RATE_9600, E220_SERIAL_PARITY_8N1);
+	HAL_Delay(50);
+	e220_set_reg1(&e220, E220_SUB_PACKET_200_BYTES, E220_RSSI_AMBIENT_NOISE_DISABLE, E220_TRANSMITTING_POWER_17DBM);
+	HAL_Delay(50);
+	e220_change_mode(&e220, E220_MODE_NM);
+	HAL_Delay(100);
+
 	// sd-card
 
 	FATFS fleska;
@@ -190,7 +217,7 @@ void appmain(void)
 		printf("altitude = %f\n", gps_data.altitude);
 		printf("fixQuality = %i\n", gps_data.fixQuality);
 
-		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+		//HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
 //		HAL_Delay(100);
 //		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
 //		HAL_Delay(100);
@@ -211,49 +238,12 @@ void appmain(void)
 		uint32_t rocket_timer = 0;
 		uint32_t light_timer = 0;
 
-/*		switch(stage)
-		{
+		e220_send_packet(&e220, (uint8_t *)&packet, sizeof(packet_t));
 
-			case 1:
+		//switch(stage)
+		//{
 
-				if (rocket_timer == 0)
-					rocket_timer = HAL_GetTick();
-
-				if (HAL_GetTick() - rocket_timer >= 15000)
-				{
-					stage = 2;
-				}
-
-				break;
-
-			case 2:
-
-				if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1) == GPIO_PIN_RESET)
-				{
-					if (light_timer == 0)
-						light_timer = HAL_GetTick();
-
-					if (HAL_GetTick() - light_timer >= 2000)
-					{
-						// подтверждено изменение освещенности
-					}
-				}
-				else
-				{
-					light_timer = 0;
-				}
-
-			   // если высота не изменяется, ставим strage = 3;
-			   //+- есть идея по реализации, использовать GPS, вытащить из нее данные высоты и сравнивать их в промежутке времени или что-то вроде того.
-
-				break;
-
-			case 3:
-
-				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET); // Пищалка
-
-				break;
-		}*/
+		//}
 
 		packet.number++;
 		//packet.time

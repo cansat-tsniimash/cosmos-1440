@@ -6,6 +6,7 @@
  */
 
 #include "e220-400t22s.h"
+#include <stdio.h>
 
 void e220_change_mode(e220_bus_t *bus, e220_mode_t mode)
 {
@@ -46,29 +47,24 @@ void e220_write_reg(e220_bus_t *bus, uint8_t addr, uint8_t *byte, uint8_t len)
 void e220_set_channel(e220_bus_t *bus, uint8_t ch)
 {
 	if (ch > 83)
-		return
+	{
+		return;
+	}
 
     e220_write_reg(bus, 0x04, &ch, 1);
 }
 
 void e220_set_addr(e220_bus_t *bus, uint16_t addr)
 {
-	e220_write_reg(bus, 0x2, (uint8_t *)&addr, 2);
+	e220_write_reg(bus, 0x00, (uint8_t *)&addr, 2);
 }
 
-void e220_set_air_rate(e220_bus_t *bus, e220_air_rate_t rate)
+void e220_set_reg0(e220_bus_t* bus, e220_air_rate_t adr, e220_uart_rate_t spr, e220_serial_parity_t spt)
 {
 	uint8_t data = 0;
-	data = data | rate;
-	e220_write_reg(bus, 0x02, &data, 1);
-}
-
-void e220_set_reg0(e220_bus_t *bus, uint8_t uart_rate, uint8_t parity, e220_air_rate_t air_rate)
-{
-	uint8_t data = 0;
-	data = data | air_rate;
-	data = data | (parity << 3);
-	data = data | (uart_rate << 5);
+	data = data | adr;
+	data = data | (spt << 3);
+	data = data | (spr << 5);
 	e220_write_reg(bus, 0x02, &data, 1);
 }
 
@@ -79,4 +75,25 @@ void e220_set_reg1(e220_bus_t *bus, e220_sub_packet_t sub_packet, e220_rssi_ambi
 	data = data | (rssi_ambient_noise << 5);
 	data = data | (sub_packet << 6);
 	e220_write_reg(bus, 0x03, &data, 1);
+}
+
+void e220_set_reg3(e220_bus_t *bus, e220_rssi_t rssi_ambient_noise, e220_transmitting_metod_t metod, e220_lbt_mode_t lbt_mode, e220_wor_cycle_t cycle)
+{
+	uint8_t data = 0;
+	data = data | cycle;
+	data = data | (lbt_mode << 4);
+	data = data | (metod << 6);
+	data = data | (rssi_ambient_noise << 7);
+	e220_write_reg(bus, 0x05, &data, 1);
+}
+
+void e220_send_packet(e220_bus_t *bus, uint8_t *reg_data, uint16_t len)
+{
+	uint16_t try = 0;
+	HAL_UART_Transmit(bus->huart, reg_data, len, 100);
+	while ( (HAL_GPIO_ReadPin(bus->aux_port, bus->aux_pin) == GPIO_PIN_RESET) && (try < 20))
+	{
+		try++;
+		HAL_Delay(1);
+	}
 }
