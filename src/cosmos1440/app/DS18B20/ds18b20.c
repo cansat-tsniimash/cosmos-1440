@@ -130,7 +130,7 @@ int ds18b20_read_temp()
 		buf[i] = one_wire_read_byte();
 	}
 
-	return (int16_t)((buf[1] << 8) | buf[0]) / 16.0;
+	return (int16_t)((buf[1] << 8) | buf[0]);
 }
 
 

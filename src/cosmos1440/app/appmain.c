@@ -1,9 +1,10 @@
 /*
- * appmain.c
- *
- *  Created on: Feb 27, 2027
- *      Author: ChatDeepseekGPTCapilot
- */
+* appmain.c
+*
+*  Created on: Feb 27, 2027
+*      Author: ChatDeepseekGPTCapilot
+*/
+#include <bitwise_XOR/bitwise_XOR.h>
 #include <DS18B20/ds18b20.h>
 #include "stm32f1xx.h"
 #include "delay/dwt_delay.h"
@@ -15,42 +16,46 @@
 #include "ff.h"
 #include "ff_gen_drv.h"
 #include "E220-400T22S/e220-400t22s.h"
+#include "operation_algoritm/algoritm_operation.h"
+#include "bitwise_XOR/bitwise_XOR.h"
 
 
 extern UART_HandleTypeDef huart1;
 extern I2C_HandleTypeDef hi2c1;
 extern UART_HandleTypeDef huart2;
+extern operation_algoritm_t status_t;
 
 #pragma pack(push, 1)
 typedef struct {
-	uint16_t start;
-	uint16_t team_id;
-	uint16_t time;
-	int16_t temp;
-	uint32_t pressure; // давление
-	int16_t acc[3]; // ускорение
-	int16_t gyro[3]; // угловая скорость
-	uint8_t sum;
+uint16_t start; // OK
+uint16_t team_id; // OK
+uint32_t time; // OK
+int16_t temp; // notOK
+uint32_t pressure; // давление  OK
+int16_t acc[3]; // ускорение OK
+int16_t gyro[3]; // угловая скорость OK
+uint8_t sum; //
 
-	uint16_t number;
-	uint8_t status;
-	float latitude_gps;
-	float longitude_gps;
-	float altitude_gps;
-	uint8_t fix_gps;
-	uint16_t fotores;
-	int16_t mag[3];
-	int16_t ds18b20;
-	float quaternion_a;
-	float quaternion_b;
-	float quaternion_c;
-	float quaternion_d;
-	int16_t corner_right;
-	int16_t corner_left;
-	uint8_t cosmos1440_sum;
+uint16_t number;
+uint8_t status;
+float latitude_gps; // OK
+float longitude_gps; // OK
+float altitude_gps; // OK
+uint8_t fix_gps; // OK
+uint16_t fotores;
+int16_t mag[3]; // OK
+int16_t ds18b20; // OK
+float quaternion_a;
+float quaternion_b;
+float quaternion_c;
+float quaternion_d;
+int16_t corner_right;
+int16_t corner_left;
+uint8_t cosmos1440_sum;
 } packet_t;
 #pragma pack(pop)
 
+#define ORG_PACK_SIZE (27)
 
 void appmain(void)
 {
@@ -59,19 +64,19 @@ void appmain(void)
 	packet.team_id = 0xBBBB;
 
 
-//	GPS
+	//	GPS
 	neo6mv2_Init();
 	__HAL_UART_ENABLE_IT(&huart1, UART_IT_RXNE);
 	__HAL_UART_ENABLE_IT(&huart1, UART_IT_ERR);
 	GPS_Data gps_data;
 
-//	DS18B20 - термометр
+	//	DS18B20 - термометр
 
 	ds18b20_init(DS18B20_12_BIT);
 	uint32_t ds_stert_time = HAL_GetTick();
 	ds18b20_conv();
 
-// BMP280 - барометр/термометр
+	// BMP280 - барометр/термометр
 
 	struct bme280_dev bmp;
 	bmp.intf = BME280_I2C_INTF;
@@ -95,7 +100,7 @@ void appmain(void)
 
 	struct bme280_data bmp_data;
 
-//	lsm6ds3
+	//	lsm6ds3
 
 	lsm6ds3_data__t lsm_bus;
 	lsm_bus.add = 0x6A << 1;
@@ -118,7 +123,7 @@ void appmain(void)
 	volatile float acc[3] = {0};
 
 
-//	lis2mdl
+	//	lis2mdl
 
 	lis2mdl_data__t lis2_bus;
 	lis2_bus.add = 0x1E << 1;
@@ -151,7 +156,7 @@ void appmain(void)
 
 	e220_change_mode(&e220, E220_MODE_SM);
 	HAL_Delay(100);
-	e220_set_channel(&e220, 2);
+	e220_set_channel(&e220, 5);
 	HAL_Delay(50);
 	e220_set_addr(&e220, 0xAAAA);
 	HAL_Delay(50);
@@ -170,38 +175,119 @@ void appmain(void)
 	FRESULT rizult_mount = f_mount(&fleska, "", 1);
 	FRESULT rizult_paket = 255;
 	UINT byte_count;
+	uint8_t time = HAL_GetTick();
+
+	float first_pressure = bmp_data.pressure;
+
+	operation_algoritm_t mission_status = OA_PREPARATION;
+	uint8_t count_fotores = 0;
+
 
 	while (1)
 	{
-		//packet.mag[3] = mag;
-		//packet.gyro[3] = gyro;
-		//packet.acc[3] = acc;
-		//packet.latitude_gps = gps_data.latitude;
-		//packet.longitude_gps = gps_data.longitude;
-		//packet.altitude_gps = gps_data.altitude;
-		//packet.temp = ds18b20_read_temp();
-	//	packet.pressure =  TODO: ДОПИСАТЬ!!!
+		float altitude = 44330 * (1 - pow((float)bmp_data.pressure / first_pressure, (1.0 / 5.255)));
+
+		switch (mission_status)
+		{
+			case OA_CHECK_LIGHT:
+				if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10) == GPIO_PIN_SET)
+				{
+//					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
+					if (count_fotores <= 10)
+					{
+						// ТУТ СОБИРАЕМ ДАННЫЕ ОБ ОСВЕЩЕННОСТИ И ЗАПИСЫВАЕМ В ПЕРЕМЕННУЮ. СДЕЛАТЬ, ЧТОБЫ В ПЕРЕМЕННУЮ ЗАПИСЫВАЛОСЬ УРОВЕНЬ ОСВЕЩЕННОСТИ.
+						for (int i = 0; i < count_fotores; i++)
+						{
+							// получаю уровень освещенности и записываю в массив с индекосм count_fotores
 
 
-	//	TODO: передать, получаемые значения с датчика в структуру пакета!!!
-	//	не получается найти значение вывода функции.
+							count_fotores++;
+						}
+						break;
+					}
+				else
+				{
+//					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_RESET);
+					time = HAL_GetTick();
+					mission_status = OA_PREPARATION;
+					// считаю среднее значение элемента массива и записываю в переменную
+					break;
+				}
+
+
+
+				}
+			case OA_PREPARATION:
+				if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10) == GPIO_PIN_SET)
+				{
+//					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
+					if (HAL_GetTick() - time >= 15000)
+					{
+//						HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_RESET);
+						mission_status = OA_ROCKET;
+						time = HAL_GetTick();
+						break;
+					}
+				}
+				else
+				{
+					time = HAL_GetTick();
+					break;
+				}
+
+
+			case OA_ROCKET:
+//				if (/*ЕСЛИ СВЕТ СЕЙЧАС > ПЕРЕМЕННОЙ С ОСВЕЩЕННОСТЬЮ */)
+//				{
+//					if (HAL_GetTick() - time >= 2000)
+//					{
+//						mission_status = OA_FIFRE;
+//						time = HAL_GetTick();
+//						break;
+//					}
+//				}
+
+			case OA_FIFRE:
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET); // Криматорий вкл
+				if (HAL_GetTick() - time >= 2000)
+				{
+					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET); // Криматорий выкл
+					mission_status = OA_DECLINE;
+					time = HAL_GetTick();
+					break;
+				}
+
+			case OA_DECLINE:
+				if (altitude < 10)
+				{
+//					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
+					break;
+				}
+
+
+
+		}
+
+
+
 
 		bme280_get_sensor_data(BME280_PRESS | BME280_TEMP, &bmp_data, &bmp);
-
-
+		packet.temp = bmp_data.temperature * 100;
+		packet.pressure = bmp_data.pressure;
 
 		lsm6ds3_acceleration_raw_get(&lsm6ds3, buf_lsm_xl);
 		lsm6ds3_angular_rate_raw_get(&lsm6ds3, buf_lsm_gy);
 		for (int i = 0; i < 3; i++)
 		{
-			acc[i] = lsm6ds3_from_fs16g_to_mg(buf_lsm_xl[i]) / 1000.0;
-			gyro[i] = lsm6ds3_from_fs125dps_to_mdps(buf_lsm_gy[i])/ 1000.0;
+			packet.acc[i] = buf_lsm_xl[i];
+			packet.gyro[i] = buf_lsm_gy[i];
+
 		}
 
 		lis2mdl_magnetic_raw_get(&lis2mdl, buf_lis2);
 		for (int i = 0; i < 3; i++)
 		{
-			mag[i] = lis2mdl_from_lsb_to_mgauss(buf_lis2[i]);
+			packet.mag[i] = buf_lis2[i];
 		}
 
 		for (int i = 0; i < 10; i++)
@@ -212,43 +298,31 @@ void appmain(void)
 			}
 		}
 		gps_data = neo6mv2_GetData();
-		printf("latitude = %f\n", gps_data.latitude);
-		printf("longitude = %f\n", gps_data.longitude);
-		printf("altitude = %f\n", gps_data.altitude);
-		printf("fixQuality = %i\n", gps_data.fixQuality);
+		packet.latitude_gps = gps_data.latitude;
+		packet.longitude_gps = gps_data.longitude;
+		packet.altitude_gps = gps_data.altitude;
+		packet.fix_gps = gps_data.fixQuality;
 
-		//HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
-//		HAL_Delay(100);
-//		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
-//		HAL_Delay(100);
+	//HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+	//HAL_Delay(100);
+	//HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
+	//HAL_Delay(100);
 
 		if (HAL_GetTick() - ds_stert_time >= 750)
 		{
-			packet.temp = ds18b20_read_temp();
+			packet.ds18b20 = ds18b20_read_temp();
 			ds_stert_time = HAL_GetTick();
 			ds18b20_conv();
 		}
 
 		//HAL_Delay(850);
+		packet.time = HAL_GetTick();
+		packet.number++;
+		packet.sum = xor_summ((uint8_t *)&packet, ORG_PACK_SIZE - 1);
+		packet.cosmos1440_sum = xor_summ(((uint8_t *)&packet + ORG_PACK_SIZE), sizeof(packet_t) - ORG_PACK_SIZE - 1);
 
-		// Алгоритм работы аппарата.
-
-
-
-		uint32_t rocket_timer = 0;
-		uint32_t light_timer = 0;
 
 		e220_send_packet(&e220, (uint8_t *)&packet, sizeof(packet_t));
-
-		//switch(stage)
-		//{
-
-		//}
-
-		packet.number++;
-		//packet.time
-		//packet.sum
-		//packet.sum
 
 		if (rizult_mount != FR_OK)
 		{
@@ -261,7 +335,7 @@ void appmain(void)
 		if (rizult_paket != FR_OK && rizult_mount == FR_OK)
 		{
 			if (rizult_paket != 255)
-				f_close(&paket_fille);
+			f_close(&paket_fille);
 			rizult_paket = f_open(&paket_fille, (const TCHAR*)&paker_path, FA_WRITE | FA_OPEN_ALWAYS | FA__WRITTEN);
 			rizult_mount = f_mount(&fleska, "", 1);
 		}
@@ -274,4 +348,5 @@ void appmain(void)
 	return;
 }
 
+// TODO: реализовать подсчет суммы организаторов и нашу
 
