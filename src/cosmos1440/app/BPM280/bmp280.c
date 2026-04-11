@@ -48,7 +48,10 @@ BME280_INTF_RET_TYPE bmp280_write_reg (uint8_t reg_addr, const uint8_t *reg_data
 
 		if (transmit != HAL_OK)
 		{
-			I2C_ClearBusyFlagErratum(ptr->hi2c1, 100);
+			if (transmit == HAL_BUSY)
+			{
+				I2C_ClearBusyFlagErratum(ptr->hi2c1, 100);
+			}
 			return transmit;
 		}
 	}

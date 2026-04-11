@@ -119,8 +119,8 @@ void appmain(void)
 
 	int16_t buf_lsm_gy[3] = {0};
 	int16_t buf_lsm_xl[3] = {0};
-	volatile float gyro[3] = {0};
-	volatile float acc[3] = {0};
+	volatile float gyro[3] = {0}; // TODO: Убрать
+	volatile float acc[3] = {0}; // TODO: Убрать
 
 
 	//	lis2mdl
@@ -141,7 +141,7 @@ void appmain(void)
 	lis2mdl_operating_mode_set(&lis2mdl, LIS2MDL_CONTINUOUS_MODE);
 
 	int16_t buf_lis2[3] = {0};
-	volatile float mag[3] = {0};
+	volatile float mag[3] = {0}; // TODO: Убрать
 
 	// E220-400T22S
 
@@ -347,6 +347,4 @@ void appmain(void)
 	}
 	return;
 }
-
-// TODO: реализовать подсчет суммы организаторов и нашу
 
