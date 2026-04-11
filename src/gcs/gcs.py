@@ -14,4 +14,5 @@ with open("file.bin", mode = "wb") as stream, open("file.csv", mode="w") as csv:
         for packet in packets:
             numbers = magic.convert(packet)
             csv.write(";".join([str(x).replace("." , ",") for x in numbers]) + "\n")
-            print(packet, numbers)
+            #print(packet, numbers)
+            print(numbers)

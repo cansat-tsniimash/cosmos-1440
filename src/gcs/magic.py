@@ -1,6 +1,5 @@
 import struct
 
-
 class Parser:
     def __init__(self) -> None:
         self.leftowers = bytes()
@@ -8,25 +7,25 @@ class Parser:
     def parse(self, data: bytes):
         rv = []
         data = self.leftowers + data
-        while len(data) >= 27:
+        while len(data) >= 74:
             while len(data) > 2 and (data[0] != 0xaa or data[1] != 0xaa):
                 data = data[1:]
             
-            if len(data) < 27:
+            if len(data) < 74:
                 break
 
-            packet = data[2:27]
+            packet = data[:74]
             cchk = packet[0]
             for b in packet[1:]:
                 cchk = cchk ^ b
 
             if cchk == 0:
-                walues = struct.unpack("<HIhI3h3hB", packet)
+                walues = struct.unpack("<2HIhI3h3hBHB3fBH3hh4fhhB", packet)
                 rv.append(walues)
                 data = data[27:]
             else:
                 data = data[1:]
-                rv.append(None)
+                #rv.append(None)
 
         self.leftowers = data
         return rv
@@ -34,18 +33,32 @@ class Parser:
 
 def convert(valeus: tuple):
     return(
-    valeus[0],#time id
-    valeus[1],#time
-    valeus[2]/16, #temperature
-    valeus[3], #давление
-    lsm6ds3_from_fs16g_to_mg(valeus[4]),
+    valeus[1],#team id
+    valeus[2],#time
+    valeus[3]/100, #temperature
+    valeus[4], #давление
     lsm6ds3_from_fs16g_to_mg(valeus[5]),
     lsm6ds3_from_fs16g_to_mg(valeus[6]),
-    lsm6ds3_from_fs2000dps_to_mdps(valeus[7]),
+    lsm6ds3_from_fs16g_to_mg(valeus[7]),
     lsm6ds3_from_fs2000dps_to_mdps(valeus[8]),
     lsm6ds3_from_fs2000dps_to_mdps(valeus[9]),
+    lsm6ds3_from_fs2000dps_to_mdps(valeus[10]),
+    valeus[12],
+    valeus[13],
+    valeus[14],
+    valeus[15],
+    valeus[16],
+    valeus[17],
+    valeus[18],
+    valeus[19],
+    valeus[20]/16,
+    valeus[21],
+    valeus[22],
+    valeus[23],
+    valeus[24],
+    valeus[25],
+    valeus[26],
 )
-
 
 def lsm6ds3_from_fs2g_to_mg(lsb: int) -> float:
   return lsb * 61.0 / 1000.0
@@ -73,4 +86,7 @@ def lsm6ds3_from_fs1000dps_to_mdps(lsb: int) -> float:
 
 def lsm6ds3_from_fs2000dps_to_mdps(lsb: int) -> float:
   return lsb * 70.0
+
+def lis2mdl_from_lbs_to_mgauss(lsb: int) -> float:
+  return lsb * 1.5
 
