@@ -2,13 +2,13 @@
  * fotores.h
  *
  *  Created on: Apr 4, 2026
- *      Author: boron
+ *      Author: ChatDeepseekGPTCapilot
  */
 
 #ifndef FOTORES_FOTORES_H_
 #define FOTORES_FOTORES_H_
 
-extern fotores_read_data();
+float fotores_read_data(void);
 
 
 

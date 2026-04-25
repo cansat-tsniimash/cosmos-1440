@@ -206,6 +206,7 @@ void USART1_IRQHandler(void)
 {
   /* USER CODE BEGIN USART1_IRQn 0 */
 	volatile uint32_t sr = USART1->SR;
+	(void)sr;
 	volatile uint32_t data = USART1->DR;
 	neo6mv2_pushbyte(data);
   /* USER CODE END USART1_IRQn 0 */

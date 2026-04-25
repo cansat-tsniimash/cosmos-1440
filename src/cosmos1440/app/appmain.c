@@ -18,12 +18,13 @@
 #include "E220-400T22S/e220-400t22s.h"
 #include "operation_algoritm/algoritm_operation.h"
 #include "bitwise_XOR/bitwise_XOR.h"
+#include "fotores/fotores.h"
 
 
 extern UART_HandleTypeDef huart1;
 extern I2C_HandleTypeDef hi2c1;
 extern UART_HandleTypeDef huart2;
-extern operation_algoritm_t status_t;
+extern TIM_HandleTypeDef htim2;
 
 #pragma pack(push, 1)
 typedef struct {
@@ -57,12 +58,27 @@ uint8_t cosmos1440_sum;
 
 #define ORG_PACK_SIZE (27)
 
+void setPWM(uint8_t value_)
+{
+    //TIM_OC_InitTypeDef sConfigOC;
+
+    //sConfigOC.OCMode = TIM_OCMODE_PWM1;
+    //sConfigOC.Pulse = 300;
+    //sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+    //sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+    //HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2);
+
+	const uint16_t value_min = 3430;
+	const uint16_t value_max = 6736;
+	const uint16_t value = (value_max - value_min) * value_ / 0xFF + value_min;
+    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, value);
+}
+
 void appmain(void)
 {
 	packet_t packet = {0};
 	packet.start = 0xAAAA;
 	packet.team_id = 0xBBBB;
-
 
 	//	GPS
 	neo6mv2_Init();
@@ -119,8 +135,6 @@ void appmain(void)
 
 	int16_t buf_lsm_gy[3] = {0};
 	int16_t buf_lsm_xl[3] = {0};
-	volatile float gyro[3] = {0}; // TODO: Убрать
-	volatile float acc[3] = {0}; // TODO: Убрать
 
 
 	//	lis2mdl
@@ -141,7 +155,6 @@ void appmain(void)
 	lis2mdl_operating_mode_set(&lis2mdl, LIS2MDL_CONTINUOUS_MODE);
 
 	int16_t buf_lis2[3] = {0};
-	volatile float mag[3] = {0}; // TODO: Убрать
 
 	// E220-400T22S
 
@@ -182,98 +195,25 @@ void appmain(void)
 	operation_algoritm_t mission_status = OA_PREPARATION;
 	uint8_t count_fotores = 0;
 
+	float fotores_aver = 2;
+	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
+
+	while(1)
+	{
+		HAL_Delay(1000);
+		setPWM(0x00);
+		HAL_Delay(1000);
+		setPWM(0xFF);
+	}
 
 	while (1)
 	{
-		float altitude = 44330 * (1 - pow((float)bmp_data.pressure / first_pressure, (1.0 / 5.255)));
-
-		switch (mission_status)
-		{
-			case OA_CHECK_LIGHT:
-				if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10) == GPIO_PIN_SET)
-				{
-//					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
-					if (count_fotores <= 10)
-					{
-						// ТУТ СОБИРАЕМ ДАННЫЕ ОБ ОСВЕЩЕННОСТИ И ЗАПИСЫВАЕМ В ПЕРЕМЕННУЮ. СДЕЛАТЬ, ЧТОБЫ В ПЕРЕМЕННУЮ ЗАПИСЫВАЛОСЬ УРОВЕНЬ ОСВЕЩЕННОСТИ.
-						for (int i = 0; i < count_fotores; i++)
-						{
-							// получаю уровень освещенности и записываю в массив с индекосм count_fotores
-
-
-							count_fotores++;
-						}
-						break;
-					}
-				else
-				{
-//					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_RESET);
-					time = HAL_GetTick();
-					mission_status = OA_PREPARATION;
-					// считаю среднее значение элемента массива и записываю в переменную
-					break;
-				}
-
-
-
-				}
-			case OA_PREPARATION:
-				if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10) == GPIO_PIN_SET)
-				{
-//					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
-					if (HAL_GetTick() - time >= 15000)
-					{
-//						HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_RESET);
-						mission_status = OA_ROCKET;
-						time = HAL_GetTick();
-						break;
-					}
-				}
-				else
-				{
-					time = HAL_GetTick();
-					break;
-				}
-
-
-			case OA_ROCKET:
-//				if (/*ЕСЛИ СВЕТ СЕЙЧАС > ПЕРЕМЕННОЙ С ОСВЕЩЕННОСТЬЮ */)
-//				{
-//					if (HAL_GetTick() - time >= 2000)
-//					{
-//						mission_status = OA_FIFRE;
-//						time = HAL_GetTick();
-//						break;
-//					}
-//				}
-
-			case OA_FIFRE:
-				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET); // Криматорий вкл
-				if (HAL_GetTick() - time >= 2000)
-				{
-					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET); // Криматорий выкл
-					mission_status = OA_DECLINE;
-					time = HAL_GetTick();
-					break;
-				}
-
-			case OA_DECLINE:
-				if (altitude < 10)
-				{
-//					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
-					break;
-				}
-
-
-
-		}
-
-
-
+		packet.fotores = fotores_read_data() * 1000;
 
 		bme280_get_sensor_data(BME280_PRESS | BME280_TEMP, &bmp_data, &bmp);
 		packet.temp = bmp_data.temperature * 100;
 		packet.pressure = bmp_data.pressure;
+		float altitude = 44330 * (1 - pow((float)bmp_data.pressure / first_pressure, (1.0 / 5.255)));
 
 		lsm6ds3_acceleration_raw_get(&lsm6ds3, buf_lsm_xl);
 		lsm6ds3_angular_rate_raw_get(&lsm6ds3, buf_lsm_gy);
@@ -303,11 +243,6 @@ void appmain(void)
 		packet.altitude_gps = gps_data.altitude;
 		packet.fix_gps = gps_data.fixQuality;
 
-	//HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
-	//HAL_Delay(100);
-	//HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
-	//HAL_Delay(100);
-
 		if (HAL_GetTick() - ds_stert_time >= 750)
 		{
 			packet.ds18b20 = ds18b20_read_temp();
@@ -315,7 +250,70 @@ void appmain(void)
 			ds18b20_conv();
 		}
 
-		//HAL_Delay(850);
+
+		switch (mission_status)
+		{
+			case OA_CHECK_LIGHT:
+				if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10) == GPIO_PIN_RESET)
+				{
+//					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
+					count_fotores = 0;
+					fotores_aver = 0;
+					for (int i = 0; i < 10; i++)
+					{
+						fotores_aver += fotores_read_data();
+						count_fotores++;
+					}
+					fotores_aver = fotores_aver / count_fotores;
+					mission_status = OA_PREPARATION;
+				} // @suppress("No break at end of case")
+
+			case OA_PREPARATION:
+				if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10) == GPIO_PIN_SET)
+				{
+//					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
+					if (HAL_GetTick() - time >= 15000)
+					{
+//						HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_RESET);
+						mission_status = OA_ROCKET;
+						time = HAL_GetTick();
+						break;
+					}
+				}
+				else
+				{
+					time = HAL_GetTick();
+					break;
+				} // @suppress("No break at end of case")
+
+
+			case OA_ROCKET:
+				if (fotores_read_data() > fotores_aver)
+				{
+					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
+					mission_status = OA_FIFRE;
+					time = HAL_GetTick();
+					break;
+				} // @suppress("No break at end of case")
+
+			case OA_FIFRE:
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET); // Криматорий вкл
+				if (HAL_GetTick() - time >= 2000)
+				{
+					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET); // Криматорий выкл
+					mission_status = OA_DECLINE;
+					time = HAL_GetTick();
+					break;
+				} // @suppress("No break at end of case")
+			case OA_DECLINE:
+				if (altitude < 10)
+				{
+//					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET)
+					break;
+				}
+		}
+
+
 		packet.time = HAL_GetTick();
 		packet.number++;
 		packet.sum = xor_summ((uint8_t *)&packet, ORG_PACK_SIZE - 1);
@@ -347,4 +345,3 @@ void appmain(void)
 	}
 	return;
 }
-
