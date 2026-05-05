@@ -58,7 +58,7 @@ uint8_t cosmos1440_sum;
 
 #define ORG_PACK_SIZE (27)
 
-void setPWM(uint8_t value_)
+void setPWM_1(uint8_t value_)
 {
     //TIM_OC_InitTypeDef sConfigOC;
 
@@ -68,10 +68,26 @@ void setPWM(uint8_t value_)
     //sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
     //HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2);
 
-	const uint16_t value_min = 3430;
-	const uint16_t value_max = 6736;
+	const uint16_t value_min = 1500;
+	const uint16_t value_max = 7500;
 	const uint16_t value = (value_max - value_min) * value_ / 0xFF + value_min;
     __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, value);
+}
+
+void setPWM_2(uint8_t value_)
+{
+    //TIM_OC_InitTypeDef sConfigOC;
+
+    //sConfigOC.OCMode = TIM_OCMODE_PWM1;
+    //sConfigOC.Pulse = 300;
+    //sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+    //sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+    //HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2);
+
+	const uint16_t value_min = 1500;
+	const uint16_t value_max = 7500;
+	const uint16_t value = (value_max - value_min) * value_ / 0xFF + value_min;
+    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, value);
 }
 
 void appmain(void)
@@ -197,15 +213,23 @@ void appmain(void)
 
 	float fotores_aver = 2;
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
+	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
 
 	while(1)
 	{
 		HAL_Delay(1000);
-		setPWM(0x00);
+		setPWM_1(0xFF / 2);
+		setPWM_2(0x00);
 		HAL_Delay(1000);
-		setPWM(0xFF);
+		setPWM_1(0xFF / 2);
+		setPWM_2(0xFF / 2);
+		HAL_Delay(1000);
+		setPWM_1(0xFF / 2 - 0xFF/12);
+		setPWM_2(0xFF / 2 + 0xFF/12);
+		HAL_Delay(1000);
+		setPWM_1(0xFF / 2);
+		setPWM_2(0xFF / 2);
 	}
-
 	while (1)
 	{
 		packet.fotores = fotores_read_data() * 1000;
