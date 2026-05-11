@@ -19,6 +19,7 @@
 #include "operation_algoritm/algoritm_operation.h"
 #include "bitwise_XOR/bitwise_XOR.h"
 #include "fotores/fotores.h"
+#include <magic/magic.h>
 
 
 extern UART_HandleTypeDef huart1;
@@ -58,8 +59,15 @@ uint8_t cosmos1440_sum;
 
 #define ORG_PACK_SIZE (27)
 
-void setPWM_1(uint8_t value_)
+void setPWM_1(float angle)
 {
+	if (angle > 180)
+	{
+		angle = 180;
+	}
+	else if (angle < 0) {
+		angle = 0;
+	}
     //TIM_OC_InitTypeDef sConfigOC;
 
     //sConfigOC.OCMode = TIM_OCMODE_PWM1;
@@ -68,14 +76,21 @@ void setPWM_1(uint8_t value_)
     //sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
     //HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2);
 
-	const uint16_t value_min = 1500;
-	const uint16_t value_max = 7500;
-	const uint16_t value = (value_max - value_min) * value_ / 0xFF + value_min;
+	const uint16_t value_min = 500;//1450;
+	const uint16_t value_max = 2500;//7350;
+	const uint16_t value = (value_max - value_min) * angle / (180) + value_min;
     __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, value);
 }
 
-void setPWM_2(uint8_t value_)
+void setPWM_2(float angle)
 {
+	if (angle > 180)
+	{
+		angle = 180;
+	}
+	else if (angle < 0) {
+		angle = 0;
+	}
     //TIM_OC_InitTypeDef sConfigOC;
 
     //sConfigOC.OCMode = TIM_OCMODE_PWM1;
@@ -84,9 +99,9 @@ void setPWM_2(uint8_t value_)
     //sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
     //HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2);
 
-	const uint16_t value_min = 1500;
-	const uint16_t value_max = 7500;
-	const uint16_t value = (value_max - value_min) * value_ / 0xFF + value_min;
+	const uint16_t value_min = 500;
+	const uint16_t value_max = 2500;
+	const uint16_t value = (value_max - value_min) * angle / (180) + value_min;
     __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, value);
 }
 
@@ -217,18 +232,71 @@ void appmain(void)
 
 	while(1)
 	{
+		/*setPWM_1(90);
+		setPWM_2(180);
 		HAL_Delay(1000);
-		setPWM_1(0xFF / 2);
-		setPWM_2(0x00);
+
+		setPWM_1(135);
+		setPWM_2(135);
 		HAL_Delay(1000);
-		setPWM_1(0xFF / 2);
-		setPWM_2(0xFF / 2);
+
+		setPWM_1(180);
+		setPWM_2(90);
 		HAL_Delay(1000);
-		setPWM_1(0xFF / 2 - 0xFF/12);
-		setPWM_2(0xFF / 2 + 0xFF/12);
+
+		setPWM_1(45);
+		setPWM_2(45);
+		HAL_Delay(1000);*/
+#define ZERO_1 (85)
+#define ZERO_2 (180)
+
+		setPWM_1(ZERO_1);
+		setPWM_2(ZERO_2);
 		HAL_Delay(1000);
-		setPWM_1(0xFF / 2);
-		setPWM_2(0xFF / 2);
+
+		//setPWM_1(90);
+		//setPWM_2(90);
+		//HAL_Delay(1000);
+
+		//setPWM_1(135);
+		//setPWM_2(135);
+		//HAL_Delay(1000);
+
+		setPWM_1(ZERO_1 + 10);
+		setPWM_2(ZERO_2 - 10);
+		HAL_Delay(1000);
+
+
+		setPWM_1(ZERO_1 + 20);
+		setPWM_2(ZERO_2 - 20);
+		HAL_Delay(1000);
+
+		setPWM_1(ZERO_1);
+		setPWM_2(ZERO_2 - 85);
+		HAL_Delay(1000);
+
+
+		/*HAL_Delay(1000);
+		setPWM_1(0);
+		setPWM_2(180);
+		HAL_Delay(1000);
+		setPWM_1(90);
+		setPWM_2(180);
+		HAL_Delay(1000);
+		setPWM_1(100);
+		setPWM_2(170);
+		HAL_Delay(1000);
+		setPWM_1(110);
+		setPWM_2(160);
+		HAL_Delay(1000);
+		setPWM_1(120);
+		setPWM_2(150);
+		HAL_Delay(1000);
+		setPWM_1(130);
+		setPWM_2(140);
+		HAL_Delay(1000);
+		setPWM_1(90);
+		setPWM_2(180);*/
 	}
 	while (1)
 	{
@@ -261,6 +329,31 @@ void appmain(void)
 				break;
 			}
 		}
+
+		float q[4];
+
+		float gx = lsm6ds3_from_fs16g_to_mg(buf_lsm_gy[0]) / 1000;
+		float gy = lsm6ds3_from_fs16g_to_mg(buf_lsm_gy[1]) / 1000;
+		float gz = lsm6ds3_from_fs16g_to_mg(buf_lsm_gy[2]) / 1000;
+
+		float ax = lsm6ds3_from_fs2000dps_to_mdps(buf_lsm_xl[0]);
+		float ay = lsm6ds3_from_fs2000dps_to_dmps(buf_lsm_xl[1]);
+		float az = lsm6ds3_from_fs2000dps_to_dmps(buf_lsm_xl[2]);
+
+		float mx = lis2mdl_from_lsb_to_mgauss(buf_lis2[0]);
+		float my = lis2mdl_from_lsb_to_mgauss(buf_lis2[1]);
+		float mz = lis2mdl_from_lsb_to_mgauss(buf_lis2[2]);
+
+		// 1000
+
+		//MadgwickAHRSupdate(q, gx, gy, gz, ax, ay, az, mx, my, mz, dt, beta);
+
+		packet.quaternion_a = q[0];
+		packet.quaternion_b = q[1];
+		packet.quaternion_c = q[2];
+		packet.quaternion_d = q[3];
+
+
 		gps_data = neo6mv2_GetData();
 		packet.latitude_gps = gps_data.latitude;
 		packet.longitude_gps = gps_data.longitude;
