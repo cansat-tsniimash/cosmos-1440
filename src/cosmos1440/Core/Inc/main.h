@@ -73,6 +73,8 @@ void Error_Handler(void);
 #define M0_GPIO_Port GPIOB
 #define ON_OFF_Pin GPIO_PIN_10
 #define ON_OFF_GPIO_Port GPIOB
+#define krimatoriy_Pin GPIO_PIN_11
+#define krimatoriy_GPIO_Port GPIOB
 #define GPIO_CS_SD_Pin GPIO_PIN_12
 #define GPIO_CS_SD_GPIO_Port GPIOB
 #define led_Pin GPIO_PIN_8

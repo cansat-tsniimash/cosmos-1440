@@ -247,10 +247,10 @@ void appmain(void)
 		setPWM_1(45);
 		setPWM_2(45);
 		HAL_Delay(1000);*/
-#define ZERO_1 (85)
-#define ZERO_2 (180)
+#define ZERO_1 (76)
+#define ZERO_2 (170)
 
-		setPWM_1(ZERO_1);
+		/*setPWM_1(ZERO_1);
 		setPWM_2(ZERO_2);
 		HAL_Delay(1000);
 
@@ -297,6 +297,49 @@ void appmain(void)
 		HAL_Delay(1000);
 		setPWM_1(90);
 		setPWM_2(180);*/
+
+
+
+
+//		setPWM_1(ZERO_1);
+//		setPWM_2(ZERO_2);
+//		HAL_Delay(1000);
+//
+//		setPWM_1(ZERO_1 + 15);
+//		setPWM_2(ZERO_2 - 75);
+//		HAL_Delay(1000);
+//
+//		setPWM_1(ZERO_1 + 165);
+//		setPWM_2(ZERO_2 - 5);
+//		HAL_Delay(1000);
+//
+//		setPWM_1(ZERO_1 + 45);
+//		setPWM_2(ZERO_2 - 45);
+//		HAL_Delay(1000);
+//
+//		setPWM_1(ZERO_1);
+//		setPWM_2(ZERO_2 - 85);
+//		HAL_Delay(1000);
+
+		setPWM_1(ZERO_1);
+		setPWM_2(ZERO_2);
+		HAL_Delay(1000);
+
+		setPWM_1(ZERO_1);
+		setPWM_2(ZERO_2 - 90);
+		HAL_Delay(1000);
+
+		setPWM_1(ZERO_1 - 15);
+		setPWM_2(ZERO_2 - 15);
+		HAL_Delay(1000);
+
+		setPWM_1(ZERO_1 + 165);
+		setPWM_2(ZERO_2 - 75);
+		HAL_Delay(1000);
+
+		setPWM_1(ZERO_1 - 45);
+		setPWM_2(ZERO_2 - 45);
+		HAL_Delay(1000);
 	}
 	while (1)
 	{
