@@ -4,6 +4,7 @@
 *  Created on: Feb 27, 2027
 *      Author: ChatDeepseekGPTCapilot
 */
+
 #include <bitwise_XOR/bitwise_XOR.h>
 #include <DS18B20/ds18b20.h>
 #include "stm32f1xx.h"
@@ -20,6 +21,7 @@
 #include "bitwise_XOR/bitwise_XOR.h"
 #include "fotores/fotores.h"
 #include <magic/magic.h>
+#include "math.h"
 
 
 extern UART_HandleTypeDef huart1;
@@ -32,7 +34,7 @@ typedef struct {
 uint16_t start; // OK
 uint16_t team_id; // OK
 uint32_t time; // OK
-int16_t temp; // notOK
+int16_t temp; // ok
 uint32_t pressure; // давление  OK
 int16_t acc[3]; // ускорение OK
 int16_t gyro[3]; // угловая скорость OK
@@ -55,7 +57,21 @@ int16_t corner_right;
 int16_t corner_left;
 uint8_t cosmos1440_sum;
 } packet_t;
+
+#define ZERO_1 (10) // 10
+#define ZERO_2 (170) // 170  A17 -
+
 #pragma pack(pop)
+
+typedef enum
+{
+    CONTROL_TRANSPORT = 0,
+    CONTROL_FORWARD = 1,
+	CONTROL_DEPLOYMENT = 2,
+    CONTROL_LEFT = 3,
+    CONTROL_RIGHT = 4
+
+} control_state_t;
 
 #define ORG_PACK_SIZE (27)
 
@@ -105,6 +121,66 @@ void setPWM_2(float angle)
     __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, value);
 }
 
+void control_transport(void)
+{
+    setPWM_1(ZERO_1);
+    setPWM_2(ZERO_2);
+}
+
+void control_deployment(void)
+{
+	setPWM_1(ZERO_1 + 90);
+	setPWM_2(ZERO_2);
+}
+
+void control_forward(void)
+{
+    setPWM_1(ZERO_1 + 135);
+    setPWM_2(ZERO_2 - 45);
+}
+
+void control_left(void)
+{
+    setPWM_1(ZERO_1 + 145);
+    setPWM_2(ZERO_2 - 10);
+}
+
+void control_right(void)
+{
+    setPWM_1(ZERO_1 + 85);
+    setPWM_2(ZERO_2 - 55);
+}
+
+void control_set(control_state_t state)
+{
+    switch (state)
+    {
+        case CONTROL_TRANSPORT:
+            control_transport();
+            break;
+
+        case CONTROL_DEPLOYMENT:
+        	control_deployment();
+            break;
+
+        case CONTROL_FORWARD:
+            control_forward();
+            break;
+
+        case CONTROL_LEFT:
+            control_left();
+            break;
+
+        case CONTROL_RIGHT:
+            control_right();
+            break;
+
+        default:
+        	control_transport();
+            break;
+    }
+}
+
 void appmain(void)
 {
 	packet_t packet = {0};
@@ -123,7 +199,7 @@ void appmain(void)
 	uint32_t ds_stert_time = HAL_GetTick();
 	ds18b20_conv();
 
-	// BMP280 - барометр/термометр
+	// BME280 - барометр/термометр
 
 	struct bme280_dev bmp;
 	bmp.intf = BME280_I2C_INTF;
@@ -167,7 +243,6 @@ void appmain(void)
 	int16_t buf_lsm_gy[3] = {0};
 	int16_t buf_lsm_xl[3] = {0};
 
-
 	//	lis2mdl
 
 	lis2mdl_data__t lis2_bus;
@@ -200,13 +275,13 @@ void appmain(void)
 
 	e220_change_mode(&e220, E220_MODE_SM);
 	HAL_Delay(100);
-	e220_set_channel(&e220, 5);
+	e220_set_channel(&e220, 33);
 	HAL_Delay(50);
 	e220_set_addr(&e220, 0xAAAA);
 	HAL_Delay(50);
 	e220_set_reg0(&e220, E220_AIR_RATE_9P6K, E220_UART_RATE_9600, E220_SERIAL_PARITY_8N1);
 	HAL_Delay(50);
-	e220_set_reg1(&e220, E220_SUB_PACKET_200_BYTES, E220_RSSI_AMBIENT_NOISE_DISABLE, E220_TRANSMITTING_POWER_17DBM);
+	e220_set_reg1(&e220, E220_SUB_PACKET_200_BYTES, E220_RSSI_AMBIENT_NOISE_DISABLE, E220_TRANSMITTING_POWER_22DBM);
 	HAL_Delay(50);
 	e220_change_mode(&e220, E220_MODE_NM);
 	HAL_Delay(100);
@@ -219,128 +294,40 @@ void appmain(void)
 	FRESULT rizult_mount = f_mount(&fleska, "", 1);
 	FRESULT rizult_paket = 255;
 	UINT byte_count;
-	uint8_t time = HAL_GetTick();
+	uint32_t time = HAL_GetTick();
 
 	float first_pressure = bmp_data.pressure;
 
-	operation_algoritm_t mission_status = OA_PREPARATION;
+	operation_algoritm_t mission_status = OA_CHECK_LIGHT;
 	uint8_t count_fotores = 0;
 
 	float fotores_aver = 2;
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
 
+
 	while(1)
 	{
-		/*setPWM_1(90);
-		setPWM_2(180);
 		HAL_Delay(1000);
-
-		setPWM_1(135);
-		setPWM_2(135);
+		control_transport();
 		HAL_Delay(1000);
-
-		setPWM_1(180);
-		setPWM_2(90);
+		control_deployment();
 		HAL_Delay(1000);
-
-		setPWM_1(45);
-		setPWM_2(45);
-		HAL_Delay(1000);*/
-#define ZERO_1 (76)
-#define ZERO_2 (170)
-
-		/*setPWM_1(ZERO_1);
-		setPWM_2(ZERO_2);
+		control_forward();
 		HAL_Delay(1000);
-
-		//setPWM_1(90);
-		//setPWM_2(90);
-		//HAL_Delay(1000);
-
-		//setPWM_1(135);
-		//setPWM_2(135);
-		//HAL_Delay(1000);
-
-		setPWM_1(ZERO_1 + 10);
-		setPWM_2(ZERO_2 - 10);
+		control_left();
+		HAL_Delay(1000);
+		control_right();
 		HAL_Delay(1000);
 
 
-		setPWM_1(ZERO_1 + 20);
-		setPWM_2(ZERO_2 - 20);
-		HAL_Delay(1000);
-
-		setPWM_1(ZERO_1);
-		setPWM_2(ZERO_2 - 85);
-		HAL_Delay(1000);
-
-
-		/*HAL_Delay(1000);
-		setPWM_1(0);
-		setPWM_2(180);
-		HAL_Delay(1000);
-		setPWM_1(90);
-		setPWM_2(180);
-		HAL_Delay(1000);
-		setPWM_1(100);
-		setPWM_2(170);
-		HAL_Delay(1000);
-		setPWM_1(110);
-		setPWM_2(160);
-		HAL_Delay(1000);
-		setPWM_1(120);
-		setPWM_2(150);
-		HAL_Delay(1000);
-		setPWM_1(130);
-		setPWM_2(140);
-		HAL_Delay(1000);
-		setPWM_1(90);
-		setPWM_2(180);*/
-
-
-
-
-//		setPWM_1(ZERO_1);
-//		setPWM_2(ZERO_2);
-//		HAL_Delay(1000);
-//
-//		setPWM_1(ZERO_1 + 15);
-//		setPWM_2(ZERO_2 - 75);
-//		HAL_Delay(1000);
-//
-//		setPWM_1(ZERO_1 + 165);
-//		setPWM_2(ZERO_2 - 5);
-//		HAL_Delay(1000);
-//
-//		setPWM_1(ZERO_1 + 45);
-//		setPWM_2(ZERO_2 - 45);
-//		HAL_Delay(1000);
-//
-//		setPWM_1(ZERO_1);
-//		setPWM_2(ZERO_2 - 85);
-//		HAL_Delay(1000);
-
-		setPWM_1(ZERO_1);
-		setPWM_2(ZERO_2);
-		HAL_Delay(1000);
-
-		setPWM_1(ZERO_1);
-		setPWM_2(ZERO_2 - 90);
-		HAL_Delay(1000);
-
-		setPWM_1(ZERO_1 - 15);
-		setPWM_2(ZERO_2 - 15);
-		HAL_Delay(1000);
-
-		setPWM_1(ZERO_1 + 165);
-		setPWM_2(ZERO_2 - 75);
-		HAL_Delay(1000);
-
-		setPWM_1(ZERO_1 - 45);
-		setPWM_2(ZERO_2 - 45);
-		HAL_Delay(1000);
 	}
+
+	float q[4] = {1, 0, 0, 0};
+	uint32_t madgwick_prev_ms = HAL_GetTick();
+	const float beta = 0.10;
+
+
 	while (1)
 	{
 		packet.fotores = fotores_read_data() * 1000;
@@ -373,29 +360,33 @@ void appmain(void)
 			}
 		}
 
-		float q[4];
+		uint32_t now_ms = HAL_GetTick();
+		float dt = (now_ms - madgwick_prev_ms) / 1000;
+		madgwick_prev_ms = now_ms;
 
-		float gx = lsm6ds3_from_fs16g_to_mg(buf_lsm_gy[0]) / 1000;
-		float gy = lsm6ds3_from_fs16g_to_mg(buf_lsm_gy[1]) / 1000;
-		float gz = lsm6ds3_from_fs16g_to_mg(buf_lsm_gy[2]) / 1000;
+		if (dt <= 0.0)
+		{
+			dt = 0.01;
+		}
 
-		float ax = lsm6ds3_from_fs2000dps_to_mdps(buf_lsm_xl[0]);
-		float ay = lsm6ds3_from_fs2000dps_to_dmps(buf_lsm_xl[1]);
-		float az = lsm6ds3_from_fs2000dps_to_dmps(buf_lsm_xl[2]);
+		float ax = lsm6ds3_from_fs16g_to_mg(buf_lsm_xl[0]) / 1000.0;
+		float ay = lsm6ds3_from_fs16g_to_mg(buf_lsm_xl[1]) / 1000.0;
+		float az = lsm6ds3_from_fs16g_to_mg(buf_lsm_xl[2]) / 1000.0;
+
+		float gx = lsm6ds3_from_fs2000dps_to_mdps(buf_lsm_gy[0]) / 1000.0 * M_PI / 180;
+		float gy = lsm6ds3_from_fs2000dps_to_mdps(buf_lsm_gy[1]) / 1000.0 * M_PI / 180;
+		float gz = lsm6ds3_from_fs2000dps_to_mdps(buf_lsm_gy[2]) / 1000.0 * M_PI / 180;
 
 		float mx = lis2mdl_from_lsb_to_mgauss(buf_lis2[0]);
 		float my = lis2mdl_from_lsb_to_mgauss(buf_lis2[1]);
 		float mz = lis2mdl_from_lsb_to_mgauss(buf_lis2[2]);
 
-		// 1000
-
-		//MadgwickAHRSupdate(q, gx, gy, gz, ax, ay, az, mx, my, mz, dt, beta);
+		MadgwickAHRSupdate(q, gx, gy, gz, ax, ay, az, mx, my, mz, dt, beta);
 
 		packet.quaternion_a = q[0];
 		packet.quaternion_b = q[1];
 		packet.quaternion_c = q[2];
 		packet.quaternion_d = q[3];
-
 
 		gps_data = neo6mv2_GetData();
 		packet.latitude_gps = gps_data.latitude;
@@ -410,13 +401,13 @@ void appmain(void)
 			ds18b20_conv();
 		}
 
-
 		switch (mission_status)
 		{
 			case OA_CHECK_LIGHT:
 				if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10) == GPIO_PIN_RESET)
 				{
-//					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
+
+					// собираю освещенность
 					count_fotores = 0;
 					fotores_aver = 0;
 					for (int i = 0; i < 10; i++)
@@ -426,51 +417,54 @@ void appmain(void)
 					}
 					fotores_aver = fotores_aver / count_fotores;
 					mission_status = OA_PREPARATION;
-				} // @suppress("No break at end of case")
+					time = HAL_GetTick();
 
+					// Собираю целевую точку
+
+
+				}
+				break;
 			case OA_PREPARATION:
 				if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10) == GPIO_PIN_SET)
 				{
-//					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
+					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
 					if (HAL_GetTick() - time >= 15000)
 					{
-//						HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_RESET);
+						HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_RESET);
 						mission_status = OA_ROCKET;
 						time = HAL_GetTick();
-						break;
 					}
 				}
 				else
 				{
 					time = HAL_GetTick();
-					break;
-				} // @suppress("No break at end of case")
-
+				}
+				break;
 
 			case OA_ROCKET:
 				if (fotores_read_data() > fotores_aver)
 				{
-					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
 					mission_status = OA_FIFRE;
 					time = HAL_GetTick();
-					break;
-				} // @suppress("No break at end of case")
 
+				}
+				break;
 			case OA_FIFRE:
-				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET); // Криматорий вкл
-				if (HAL_GetTick() - time >= 2000)
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET); // Криматорий вкл
+				if (HAL_GetTick() - time >= 3000)
 				{
-					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET); // Криматорий выкл
+					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET); // Криматорий выкл
 					mission_status = OA_DECLINE;
 					time = HAL_GetTick();
-					break;
-				} // @suppress("No break at end of case")
+
+				}
+				break;
 			case OA_DECLINE:
 				if (altitude < 10)
 				{
-//					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET)
-					break;
+					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
 				}
+				break;
 		}
 
 
@@ -493,9 +487,10 @@ void appmain(void)
 		if (rizult_paket != FR_OK && rizult_mount == FR_OK)
 		{
 			if (rizult_paket != 255)
-			f_close(&paket_fille);
+				f_close(&paket_fille);
 			rizult_paket = f_open(&paket_fille, (const TCHAR*)&paker_path, FA_WRITE | FA_OPEN_ALWAYS | FA__WRITTEN);
-			rizult_mount = f_mount(&fleska, "", 1);
+			if (rizult_paket != FR_OK)
+				rizult_mount = 255;
 		}
 		if (rizult_paket == FR_OK && rizult_mount == FR_OK)
 		{
