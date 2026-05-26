@@ -5,6 +5,9 @@
  *      Author: ChatDeepseekGPTCapilot
  */
 
+
+// 						WE BELIVE IN THIS CODE
+
 #include "BPM280/bmp280.h"
 #include "delay/dwt_delay.h"
 #include "delay/i2c-crutch.h"

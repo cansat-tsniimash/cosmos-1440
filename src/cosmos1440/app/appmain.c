@@ -3,6 +3,8 @@
 *
 *  Created on: Feb 27, 2027
 *      Author: ChatDeepseekGPTCapilot
+*
+*      WE BELIVE IN THIS CODE
 */
 
 #include <bitwise_XOR/bitwise_XOR.h>
@@ -21,7 +23,8 @@
 #include "bitwise_XOR/bitwise_XOR.h"
 #include "fotores/fotores.h"
 #include <magic/magic.h>
-#include "math.h"
+#include <math.h>
+#include "math/math.h"
 
 
 extern UART_HandleTypeDef huart1;
@@ -57,6 +60,12 @@ int16_t corner_right;
 int16_t corner_left;
 uint8_t cosmos1440_sum;
 } packet_t;
+
+typedef struct {
+	float latitude_target_gps;
+	float longitude_target_gps;
+	float altitude_target_gps;
+} dataGPS_t;
 
 #define ZERO_1 (10) // 10
 #define ZERO_2 (170) // 170  A17 -
@@ -187,6 +196,10 @@ void appmain(void)
 	packet.start = 0xAAAA;
 	packet.team_id = 0xBBBB;
 
+	// занулил значения для целевой точки
+	dataGPS_t dataGPS = {0};
+
+
 	//	GPS
 	neo6mv2_Init();
 	__HAL_UART_ENABLE_IT(&huart1, UART_IT_RXNE);
@@ -305,23 +318,7 @@ void appmain(void)
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
 
-
-	while(1)
-	{
-		HAL_Delay(1000);
-		control_transport();
-		HAL_Delay(1000);
-		control_deployment();
-		HAL_Delay(1000);
-		control_forward();
-		HAL_Delay(1000);
-		control_left();
-		HAL_Delay(1000);
-		control_right();
-		HAL_Delay(1000);
-
-
-	}
+	// Собираю значения для MadgwickAHRSupdate
 
 	float q[4] = {1, 0, 0, 0};
 	uint32_t madgwick_prev_ms = HAL_GetTick();
@@ -421,7 +418,19 @@ void appmain(void)
 
 					// Собираю целевую точку
 
+//					neo6mv2_Init();
+//					__HAL_UART_ENABLE_IT(&huart1, UART_IT_RXNE);
+//					__HAL_UART_ENABLE_IT(&huart1, UART_IT_ERR);
+//					GPS_Data gps_data;
+//
+//					gps_data = neo6mv2_GetData();
+//					dataGPS.latitude_target_gps = gps_data.latitude;
+//					dataGPS.longitude_target_gps = gps_data.longitude;
+//					dataGPS.altitude_target_gps = gps_data.altitude;
 
+					dataGPS.latitude_target_gps =  packet.latitude_gps;
+					dataGPS.longitude_target_gps = packet.longitude_gps;
+					dataGPS.altitude_target_gps = packet.altitude_gps;
 				}
 				break;
 			case OA_PREPARATION:
@@ -450,19 +459,23 @@ void appmain(void)
 				}
 				break;
 			case OA_FIFRE:
-				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET); // Криматорий вкл
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET); // Криматорий ON
 				if (HAL_GetTick() - time >= 3000)
 				{
-					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET); // Криматорий выкл
-					mission_status = OA_DECLINE;
+					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET); // Криматорий OFF
+					mission_status = OA_CONTROL;
 					time = HAL_GetTick();
-
 				}
 				break;
+			case OA_CONTROL:
+
+				break;
+
+
 			case OA_DECLINE:
 				if (altitude < 10)
 				{
-					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
+					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET); // Пищалка ON
 				}
 				break;
 		}

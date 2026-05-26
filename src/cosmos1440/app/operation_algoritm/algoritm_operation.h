@@ -13,8 +13,8 @@ typedef enum {
 	OA_PREPARATION,
 	OA_ROCKET,
 	OA_FIFRE,
+	OA_CONTROL,
 	OA_DECLINE,
-	OA_TURN,
 }operation_algoritm_t;
 
 #endif /* OPERATION_ALGORITM_ALGORITM_OPERATION_H_ */
