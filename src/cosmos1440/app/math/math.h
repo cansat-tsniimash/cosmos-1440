@@ -23,7 +23,8 @@ typedef struct {
     float Z;
 } rectangular_system_data_t;
 
-void math(float latitude_target_gps, float longitude_target_gps, float altitude_target_gps, float latitude_now_gps, float longitude_now_gps, float altitude_now_gps);
+
+rectangular_system_data_t math(float latitude_target_gps, float longitude_target_gps, float altitude_target_gps, float latitude_now_gps, float longitude_now_gps, float altitude_now_gps);
 
 float conversion_radians(float num);
 

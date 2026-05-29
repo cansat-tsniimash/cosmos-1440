@@ -26,7 +26,6 @@
 #include <math.h>
 #include "math/math.h"
 
-
 extern UART_HandleTypeDef huart1;
 extern I2C_HandleTypeDef hi2c1;
 extern UART_HandleTypeDef huart2;
@@ -292,12 +291,15 @@ void appmain(void)
 	HAL_Delay(50);
 	e220_set_addr(&e220, 0xAAAA);
 	HAL_Delay(50);
-	e220_set_reg0(&e220, E220_AIR_RATE_9P6K, E220_UART_RATE_9600, E220_SERIAL_PARITY_8N1);
+	e220_set_reg0(&e220, E220_AIR_RATE_19P2K, E220_UART_RATE_115200, E220_SERIAL_PARITY_8N1);
 	HAL_Delay(50);
 	e220_set_reg1(&e220, E220_SUB_PACKET_200_BYTES, E220_RSSI_AMBIENT_NOISE_DISABLE, E220_TRANSMITTING_POWER_22DBM);
 	HAL_Delay(50);
 	e220_change_mode(&e220, E220_MODE_NM);
 	HAL_Delay(100);
+
+	huart2.Init.BaudRate = 115200;
+	HAL_UART_Init(&huart2);
 
 	// sd-card
 
@@ -309,6 +311,7 @@ void appmain(void)
 	UINT byte_count;
 	uint32_t time = HAL_GetTick();
 
+	bme280_get_sensor_data(BME280_PRESS | BME280_TEMP, &bmp_data, &bmp);
 	float first_pressure = bmp_data.pressure;
 
 	operation_algoritm_t mission_status = OA_CHECK_LIGHT;
@@ -469,7 +472,34 @@ void appmain(void)
 				break;
 			case OA_CONTROL:
 
-				break;
+			    if (packet.fix_gps)
+			    {
+			        rectangular_system_data_t target_vector;
+
+			        target_vector = math(dataGPS.latitude_target_gps, dataGPS.longitude_target_gps, dataGPS.altitude_target_gps, packet.latitude_gps, packet.longitude_gps, packet.altitude_gps);
+
+			        float alpha = atan2f(target_vector.Y, target_vector.X) * 180 / M_PI;
+
+			        if (alpha > 10)
+			        {
+			            control_left();
+			        }
+			        else if (alpha < -10)
+			        {
+			            control_right();
+			        }
+			        else
+			        {
+			            control_forward();
+			        }
+			    }
+
+			    if (altitude < 10)
+			    {
+			        mission_status = OA_DECLINE;
+			    }
+
+			    break;
 
 
 			case OA_DECLINE:

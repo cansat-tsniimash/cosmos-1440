@@ -10,17 +10,6 @@
 #include "math/math.h"
 #include <math.h>
 
-typedef struct {
-    float right;
-    float left;
-} direction_t;
-
-typedef struct {
-    float X;
-    float Y;
-    float Z;
-} rectangular_system_data_t;
-
 #define a (6378000)
 #define b (6356780)
 #define PI_F (3.14159265358979323846)
@@ -32,10 +21,8 @@ rectangular_system_data_t transform_rectangular_system(float latitude, float lon
 
 void transformation_into_topocentric_system(float latitude_now, float longitude_now, rectangular_system_data_t target, rectangular_system_data_t now, rectangular_system_data_t *enu);
 
-void math(float latitude_target_gps, float longitude_target_gps,float altitude_target_gps, float latitude_now_gps, float longitude_now_gps, float altitude_now_gps)
+rectangular_system_data_t math(float latitude_target_gps, float longitude_target_gps,float altitude_target_gps, float latitude_now_gps, float longitude_now_gps, float altitude_now_gps)
 {
-    direction_t direction = {0};
-
     rectangular_system_data_t target_xyz = {0};
     rectangular_system_data_t now_xyz = {0};
     rectangular_system_data_t enu = {0};
@@ -45,8 +32,7 @@ void math(float latitude_target_gps, float longitude_target_gps,float altitude_t
 
     transformation_into_topocentric_system(latitude_now_gps, longitude_now_gps, target_xyz, now_xyz, &enu);
 
-    // direction.right
-    // direction.left
+    return enu;
 }
 
 rectangular_system_data_t transform_rectangular_system(float latitude, float longitude, float altitude)
