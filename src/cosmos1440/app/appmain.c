@@ -311,15 +311,17 @@ void appmain(void)
 
 	// Собираю значения для MadgwickAHRSupdate
 
-	float q[4] = {1, 0, 0, 330};
+	float q[4] = {1.0f, 0.0f, 0.0f, 0.0f};
 	uint32_t madgwick_prev_ms = HAL_GetTick();
-	const float beta = 0.10;
+	const float beta = 0.20f;
 
 	// это для перехода в состояние на земле и срабатывания пищалки
 
 	float last_control_altitude = 0.0;
 	uint32_t last_control_altitude_time = 0;
 	uint8_t altitude_control_started = 0;
+
+    static uint8_t stable_altitude_count = 0;
 
 	while (1)
 	{
@@ -354,12 +356,12 @@ void appmain(void)
 		}
 
 		uint32_t now_ms = HAL_GetTick();
-		float dt = (now_ms - madgwick_prev_ms) / 1000;
+		float dt = (now_ms - madgwick_prev_ms) / 1000.0f;
 		madgwick_prev_ms = now_ms;
 
-		if (dt <= 0.0)
+		if (dt <= 0.0f || dt > 0.1f)
 		{
-			dt = 0.01;
+		    dt = 0.01f;
 		}
 
 		float ax = lsm6ds3_from_fs16g_to_mg(buf_lsm_xl[0]) / 1000.0;
@@ -489,7 +491,16 @@ void appmain(void)
 
 			    if (HAL_GetTick() - last_control_altitude_time >= 1000)
 			    {
-			        if (fabsf(altitude - last_control_altitude) < 5)
+			        if (fabsf(altitude - last_control_altitude) < 5.0f)
+			        {
+			            stable_altitude_count++;
+			        }
+			        else
+			        {
+			            stable_altitude_count = 0;
+			        }
+
+			        if (stable_altitude_count >= 5)
 			        {
 			            mission_status = OA_DECLINE;
 			        }
