@@ -92,13 +92,6 @@ void setPWM_1(float angle)
 	else if (angle < 0) {
 		angle = 0;
 	}
-    //TIM_OC_InitTypeDef sConfigOC;
-
-    //sConfigOC.OCMode = TIM_OCMODE_PWM1;
-    //sConfigOC.Pulse = 300;
-    //sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-    //sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-    //HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2);
 
 	const uint16_t value_min = 500;//1450;
 	const uint16_t value_max = 2500;//7350;
@@ -115,19 +108,14 @@ void setPWM_2(float angle)
 	else if (angle < 0) {
 		angle = 0;
 	}
-    //TIM_OC_InitTypeDef sConfigOC;
-
-    //sConfigOC.OCMode = TIM_OCMODE_PWM1;
-    //sConfigOC.Pulse = 300;
-    //sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-    //sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-    //HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2);
 
 	const uint16_t value_min = 500;
 	const uint16_t value_max = 2500;
 	const uint16_t value = (value_max - value_min) * angle / (180) + value_min;
     __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, value);
 }
+
+// TODO: сделать плавный поворот крыльев (сейчас он резкий)
 
 void control_transport(void)
 {
@@ -323,10 +311,15 @@ void appmain(void)
 
 	// Собираю значения для MadgwickAHRSupdate
 
-	float q[4] = {1, 0, 0, 0};
+	float q[4] = {1, 0, 0, 330};
 	uint32_t madgwick_prev_ms = HAL_GetTick();
 	const float beta = 0.10;
 
+	// это для перехода в состояние на земле и срабатывания пищалки
+
+	float last_control_altitude = 0.0;
+	uint32_t last_control_altitude_time = 0;
+	uint8_t altitude_control_started = 0;
 
 	while (1)
 	{
@@ -401,12 +394,15 @@ void appmain(void)
 			ds18b20_conv();
 		}
 
+		// E = 0 м
+		// N = 6356780 м
+		// U = -6378000 м
+
 		switch (mission_status)
 		{
 			case OA_CHECK_LIGHT:
 				if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10) == GPIO_PIN_RESET)
 				{
-
 					// собираю освещенность
 					count_fotores = 0;
 					fotores_aver = 0;
@@ -419,23 +415,12 @@ void appmain(void)
 					mission_status = OA_PREPARATION;
 					time = HAL_GetTick();
 
-					// Собираю целевую точку
-
-//					neo6mv2_Init();
-//					__HAL_UART_ENABLE_IT(&huart1, UART_IT_RXNE);
-//					__HAL_UART_ENABLE_IT(&huart1, UART_IT_ERR);
-//					GPS_Data gps_data;
-//
-//					gps_data = neo6mv2_GetData();
-//					dataGPS.latitude_target_gps = gps_data.latitude;
-//					dataGPS.longitude_target_gps = gps_data.longitude;
-//					dataGPS.altitude_target_gps = gps_data.altitude;
-
 					dataGPS.latitude_target_gps =  packet.latitude_gps;
 					dataGPS.longitude_target_gps = packet.longitude_gps;
 					dataGPS.altitude_target_gps = packet.altitude_gps;
 				}
 				break;
+
 			case OA_PREPARATION:
 				if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10) == GPIO_PIN_SET)
 				{
@@ -461,6 +446,7 @@ void appmain(void)
 
 				}
 				break;
+
 			case OA_FIFRE:
 				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET); // Криматорий ON
 				if (HAL_GetTick() - time >= 3000)
@@ -470,7 +456,14 @@ void appmain(void)
 					time = HAL_GetTick();
 				}
 				break;
+
 			case OA_CONTROL:
+			    if (altitude_control_started == 0)
+			    {
+			        last_control_altitude = altitude;
+			        last_control_altitude_time = HAL_GetTick();
+			        altitude_control_started = 1;
+			    }
 
 			    if (packet.fix_gps)
 			    {
@@ -494,19 +487,22 @@ void appmain(void)
 			        }
 			    }
 
-			    if (altitude < 10)
+			    if (HAL_GetTick() - last_control_altitude_time >= 1000)
 			    {
-			        mission_status = OA_DECLINE;
+			        if (fabsf(altitude - last_control_altitude) < 5)
+			        {
+			            mission_status = OA_DECLINE;
+			        }
+
+			        last_control_altitude = altitude;
+			        last_control_altitude_time = HAL_GetTick();
 			    }
 
 			    break;
 
 
 			case OA_DECLINE:
-				if (altitude < 10)
-				{
 					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET); // Пищалка ON
-				}
 				break;
 		}
 
