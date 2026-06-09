@@ -177,6 +177,44 @@ void control_set(control_state_t state)
     }
 }
 
+typedef struct
+{
+    float x;
+    float y;
+    float z;
+} mag_calibrated_t;
+
+mag_calibrated_t calibrate_magnetometer(float mx_raw, float my_raw, float mz_raw)
+{
+    mag_calibrated_t mag;
+
+    const float bx = 2035.871825f;
+    const float by = 89.097543f;
+    const float bz = 282.604641f;
+
+    const float a11 = 0.121419f;
+    const float a12 = -0.001481f;
+    const float a13 = -0.001617f;
+
+    const float a21 = -0.001481f;
+    const float a22 = 0.297302f;
+    const float a23 = 0.001402f;
+
+    const float a31 = -0.001617f;
+    const float a32 = 0.001402f;
+    const float a33 = 0.305191f;
+
+    float x = mx_raw - bx;
+    float y = my_raw - by;
+    float z = mz_raw - bz;
+
+    mag.x = a11 * x + a12 * y + a13 * z;
+    mag.y = a21 * x + a22 * y + a23 * z;
+    mag.z = a31 * x + a32 * y + a33 * z;
+
+    return mag;
+}
+
 void appmain(void)
 {
 	packet_t packet = {0};
@@ -305,7 +343,7 @@ void appmain(void)
 	operation_algoritm_t mission_status = OA_CHECK_LIGHT;
 	uint8_t count_fotores = 0;
 
-	float fotores_aver = 2;
+	float fotores_aver = 2; //???????
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
 
@@ -372,9 +410,15 @@ void appmain(void)
 		float gy = lsm6ds3_from_fs2000dps_to_mdps(buf_lsm_gy[1]) / 1000.0 * M_PI / 180;
 		float gz = lsm6ds3_from_fs2000dps_to_mdps(buf_lsm_gy[2]) / 1000.0 * M_PI / 180;
 
-		float mx = lis2mdl_from_lsb_to_mgauss(buf_lis2[0]);
-		float my = lis2mdl_from_lsb_to_mgauss(buf_lis2[1]);
-		float mz = lis2mdl_from_lsb_to_mgauss(buf_lis2[2]);
+		float mx_raw = (float)buf_lis2[0];
+		float my_raw = (float)buf_lis2[1];
+		float mz_raw = (float)buf_lis2[2];
+
+		mag_calibrated_t mag = calibrate_magnetometer(mx_raw, my_raw, mz_raw);
+
+		float mx = mag.x;
+		float my = mag.y;
+		float mz = mag.z;
 
 		MadgwickAHRSupdate(q, gx, gy, gz, ax, ay, az, mx, my, mz, dt, beta);
 
@@ -407,7 +451,7 @@ void appmain(void)
 				{
 					// собираю освещенность
 					count_fotores = 0;
-					fotores_aver = 0;
+					fotores_aver = 0; //????????????????
 					for (int i = 0; i < 10; i++)
 					{
 						fotores_aver += fotores_read_data();
