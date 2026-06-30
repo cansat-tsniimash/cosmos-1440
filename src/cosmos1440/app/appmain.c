@@ -59,6 +59,8 @@ int16_t corner_right;
 int16_t corner_left;
 uint8_t cosmos1440_sum;
 } packet_t;
+#pragma pack(pop)
+
 
 typedef struct {
 	float latitude_target_gps;
@@ -68,8 +70,6 @@ typedef struct {
 
 #define ZERO_1 (10) // 10
 #define ZERO_2 (170) // 170  A17 -
-
-#pragma pack(pop)
 
 typedef enum
 {
@@ -114,8 +114,6 @@ void setPWM_2(float angle)
 	const uint16_t value = (value_max - value_min) * angle / (180) + value_min;
     __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, value);
 }
-
-// TODO: сделать плавный поворот крыльев (сейчас он резкий)
 
 void control_transport(void)
 {
@@ -188,21 +186,21 @@ mag_calibrated_t calibrate_magnetometer(float mx_raw, float my_raw, float mz_raw
 {
     mag_calibrated_t mag;
 
-    const float bx = 2035.871825f;
-    const float by = 89.097543f;
-    const float bz = 282.604641f;
+    const float bx = 1909.589816f;
+    const float by = 356.898176f;
+    const float bz = -304.808946f;
 
-    const float a11 = 0.121419f;
-    const float a12 = -0.001481f;
-    const float a13 = -0.001617f;
+    const float a11 = 0.368026f;
+    const float a12 = -0.003856f;
+    const float a13 = 0.007707f;
 
-    const float a21 = -0.001481f;
-    const float a22 = 0.297302f;
-    const float a23 = 0.001402f;
+    const float a21 = -0.003856f;
+    const float a22 = 0.362622f;
+    const float a23 = -0.006912f;
 
-    const float a31 = -0.001617f;
-    const float a32 = 0.001402f;
-    const float a33 = 0.305191f;
+    const float a31 = 0.007707f;
+    const float a32 = -0.006912f;
+    const float a33 = 0.347953f;
 
     float x = mx_raw - bx;
     float y = my_raw - by;
@@ -223,7 +221,6 @@ void appmain(void)
 
 	// занулил значения для целевой точки
 	dataGPS_t dataGPS = {0};
-
 
 	//	GPS
 	neo6mv2_Init();
@@ -351,7 +348,7 @@ void appmain(void)
 
 	float q[4] = {1.0f, 0.0f, 0.0f, 0.0f};
 	uint32_t madgwick_prev_ms = HAL_GetTick();
-	const float beta = 0.20f;
+	const float beta = 0.15f;
 
 	// это для перехода в состояние на земле и срабатывания пищалки
 
@@ -397,7 +394,7 @@ void appmain(void)
 		float dt = (now_ms - madgwick_prev_ms) / 1000.0f;
 		madgwick_prev_ms = now_ms;
 
-		if (dt <= 0.0f || dt > 0.1f)
+		if (dt <= 0.0f)
 		{
 		    dt = 0.01f;
 		}
@@ -440,10 +437,6 @@ void appmain(void)
 			ds18b20_conv();
 		}
 
-		// E = 0 м
-		// N = 6356780 м
-		// U = -6378000 м
-
 		switch (mission_status)
 		{
 			case OA_CHECK_LIGHT:
@@ -461,9 +454,9 @@ void appmain(void)
 					mission_status = OA_PREPARATION;
 					time = HAL_GetTick();
 
-					dataGPS.latitude_target_gps =  packet.latitude_gps;
-					dataGPS.longitude_target_gps = packet.longitude_gps;
-					dataGPS.altitude_target_gps = packet.altitude_gps;
+					dataGPS.latitude_target_gps =  55;//packet.latitude_gps;
+					dataGPS.longitude_target_gps = 37;//packet.longitude_gps;
+					dataGPS.altitude_target_gps = 120;//packet.altitude_gps;
 				}
 				break;
 
@@ -510,10 +503,13 @@ void appmain(void)
 			        last_control_altitude_time = HAL_GetTick();
 			        altitude_control_started = 1;
 			    }
-
+			    packet.fix_gps = 1;//this
 			    if (packet.fix_gps)
 			    {
 			        rectangular_system_data_t target_vector;
+			        packet.latitude_gps = 55.05;
+					packet.longitude_gps = 37;
+					packet.altitude_gps = 120;
 
 			        target_vector = math(dataGPS.latitude_target_gps, dataGPS.longitude_target_gps, dataGPS.altitude_target_gps, packet.latitude_gps, packet.longitude_gps, packet.altitude_gps);
 
@@ -521,15 +517,17 @@ void appmain(void)
 
 			        if (alpha > 10)
 			        {
-			            control_left();
+			        	control_set(CONTROL_RIGHT);
+			        	packet.corner_right = alpha;
 			        }
 			        else if (alpha < -10)
 			        {
-			            control_right();
+			        	control_set(CONTROL_LEFT);
+			        	packet.corner_left = alpha;
 			        }
 			        else
 			        {
-			            control_forward();
+			        	control_set(CONTROL_FORWARD);
 			        }
 			    }
 
@@ -560,7 +558,6 @@ void appmain(void)
 					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET); // Пищалка ON
 				break;
 		}
-
 
 		packet.time = HAL_GetTick();
 		packet.number++;

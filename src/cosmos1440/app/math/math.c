@@ -10,8 +10,8 @@
 #include "math/math.h"
 #include <math.h>
 
-#define a (6378000)
-#define b (6356780)
+#define a (6378000.0)
+#define b (6356780.0)
 #define PI_F (3.14159265358979323846)
 
 float conversion_radians(float num);
@@ -48,7 +48,7 @@ rectangular_system_data_t transform_rectangular_system(float latitude, float lon
 
 float radius_curvature(float latitude)
 {
-    float res = (a * a) / sqrtf((a * a) * powf(cosf(latitude), 2) + (b * b) * powf(sinf(latitude), 2));
+    volatile float res = (a * a) / (sqrtf((a * a) * powf(cosf(latitude), 2) + (b * b) * powf(sinf(latitude), 2)));
 
     return res;
 }
