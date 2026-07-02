@@ -10,8 +10,10 @@
 #include "math/math.h"
 #include <math.h>
 
+void quaternion_rotate(rectangular_system_data_t *v, const float q[4]);
+
 #define a (6378000.0)
-#define b (6356780.0)
+#define b (6356752.314245)
 #define PI_F (3.14159265358979323846)
 
 float conversion_radians(float num);
@@ -21,16 +23,19 @@ rectangular_system_data_t transform_rectangular_system(float latitude, float lon
 
 void transformation_into_topocentric_system(float latitude_now, float longitude_now, rectangular_system_data_t target, rectangular_system_data_t now, rectangular_system_data_t *enu);
 
-rectangular_system_data_t math(float latitude_target_gps, float longitude_target_gps,float altitude_target_gps, float latitude_now_gps, float longitude_now_gps, float altitude_now_gps)
+rectangular_system_data_t math(float latitude_target_gps,float longitude_target_gps, float altitude_target_gps, float latitude_now_gps, float longitude_now_gps, float altitude_now_gps, const float q[4])
 {
     rectangular_system_data_t target_xyz = {0};
     rectangular_system_data_t now_xyz = {0};
     rectangular_system_data_t enu = {0};
 
-    target_xyz = transform_rectangular_system(conversion_radians(latitude_target_gps), conversion_radians(longitude_target_gps),altitude_target_gps);
-    now_xyz = transform_rectangular_system(conversion_radians(latitude_now_gps), conversion_radians(longitude_now_gps),altitude_now_gps);
+    target_xyz = transform_rectangular_system(conversion_radians(latitude_target_gps), conversion_radians(longitude_target_gps), altitude_target_gps);
+
+    now_xyz = transform_rectangular_system(conversion_radians(latitude_now_gps), conversion_radians(longitude_now_gps), altitude_now_gps);
 
     transformation_into_topocentric_system(latitude_now_gps, longitude_now_gps, target_xyz, now_xyz, &enu);
+
+    quaternion_rotate(&enu, q); // Возможно знак поменять
 
     return enu;
 }
@@ -70,4 +75,26 @@ void transformation_into_topocentric_system(float latitude_now, float longitude_
     enu->X = -sinf(lon) * dX + cosf(lon) * dY;
     enu->Y = -sinf(lat) * cosf(lon) * dX - sinf(lat) * sinf(lon) * dY + cosf(lat) * dZ;
     enu->Z = cosf(lat) * cosf(lon) * dX + cosf(lat) * sinf(lon) * dY + sinf(lat) * dZ;
+}
+
+
+void quaternion_rotate(rectangular_system_data_t *v, const float q[4])
+{
+    float qw = q[0];
+    float qx = q[1];
+    float qy = q[2];
+    float qz = q[3];
+
+    float x = v->X;
+    float y = v->Y;
+    float z = v->Z;
+
+    float iw =  qx*x + qy*y + qz*z;
+    float ix =  qw*x - qz*y + qy*z;
+    float iy =  qw*y + qz*x - qx*z;
+    float iz =  qw*z - qy*x + qx*y;
+
+    v->X =  iw*qx + ix*qw + iy*qz - iz*qy;
+    v->Y =  iw*qy - ix*qz + iy*qw + iz*qx;
+    v->Z =  iw*qz + ix*qy - iy*qx + iz*qw;
 }

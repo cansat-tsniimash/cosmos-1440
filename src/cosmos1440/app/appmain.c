@@ -57,6 +57,15 @@ float quaternion_c;
 float quaternion_d;
 int16_t corner_right;
 int16_t corner_left;
+
+/* новые данные алгоритма управления */
+float alpha;
+float target_body_x;
+float target_body_y;
+float target_body_z;
+float servo1_cmd;
+float servo2_cmd;
+
 uint8_t cosmos1440_sum;
 } packet_t;
 #pragma pack(pop)
@@ -70,6 +79,13 @@ typedef struct {
 
 #define ZERO_1 (10) // 10
 #define ZERO_2 (170) // 170  A17 -
+
+#define SERVO_DT_MS          20
+#define SERVO_SPEED_DEG_S    45.0f
+#define ALPHA_DEAD_ZONE      10.0f
+#define ALPHA_MAX            90.0f
+#define WING_MAX_DELTA       55.0f
+#define SIGN_CHANGE_NEUTRAL  1
 
 typedef enum
 {
@@ -213,6 +229,101 @@ mag_calibrated_t calibrate_magnetometer(float mx_raw, float my_raw, float mz_raw
     return mag;
 }
 
+float clampf(float x, float min, float max)
+{
+    if (x > max) return max;
+    if (x < min) return min;
+    return x;
+}
+
+float move_smooth(float current, float target, float max_step)
+{
+    if (target > current + max_step)
+        return current + max_step;
+
+    if (target < current - max_step)
+        return current - max_step;
+
+    return target;
+}
+
+void control_wings_by_alpha(float alpha)
+{
+    static float servo1_now = ZERO_1 + 135;
+    static float servo2_now = ZERO_2 - 45;
+
+    static int8_t last_turn_sign = 0;
+    static uint32_t last_update_ms = 0;
+
+    uint32_t now = HAL_GetTick();
+
+    if (now - last_update_ms < SERVO_DT_MS)
+        return;
+
+    float dt = (now - last_update_ms) / 1000.0f;
+    last_update_ms = now;
+
+    if (dt <= 0.0f || dt > 0.2f)
+        dt = SERVO_DT_MS / 1000.0f;
+
+    int8_t turn_sign = 0;
+
+    if (alpha > ALPHA_DEAD_ZONE)
+        turn_sign = 1;      // направо
+    else if (alpha < -ALPHA_DEAD_ZONE)
+        turn_sign = -1;     // налево
+
+    float target1 = ZERO_1 + 135;
+    float target2 = ZERO_2 - 45;
+
+    if (SIGN_CHANGE_NEUTRAL && last_turn_sign != 0 && turn_sign != 0 && turn_sign != last_turn_sign)
+    {
+        target1 = ZERO_1 + 135;
+        target2 = ZERO_2 - 45;
+
+        if (fabsf(servo1_now - target1) < 3.0f && fabsf(servo2_now - target2) < 3.0f)
+        {
+            last_turn_sign = turn_sign;
+        }
+    }
+    else
+    {
+        last_turn_sign = turn_sign;
+
+        float k = fabsf(alpha) / ALPHA_MAX;
+        k = clampf(k, 0.0f, 1.0f);
+
+        float delta = k * WING_MAX_DELTA;
+
+        if (turn_sign > 0)
+        {
+            // направо
+            target1 = ZERO_1 + 135 - delta;
+            target2 = ZERO_2 - 45 - delta * 0.18f;
+        }
+        else if (turn_sign < 0)
+        {
+            // налево
+            target1 = ZERO_1 + 135 + delta * 0.18f;
+            target2 = ZERO_2 - 45 + delta;
+        }
+        else
+        {
+            // прямо
+            target1 = ZERO_1 + 135;
+            target2 = ZERO_2 - 45;
+        }
+    }
+
+    float max_step = SERVO_SPEED_DEG_S * dt;
+
+    servo1_now = move_smooth(servo1_now, target1, max_step);
+    servo2_now = move_smooth(servo2_now, target2, max_step);
+
+    setPWM_1(servo1_now);
+    setPWM_2(servo2_now);
+}
+
 void appmain(void)
 {
 	packet_t packet = {0};
@@ -337,10 +448,9 @@ void appmain(void)
 	bme280_get_sensor_data(BME280_PRESS | BME280_TEMP, &bmp_data, &bmp);
 	float first_pressure = bmp_data.pressure;
 
-	operation_algoritm_t mission_status = OA_CHECK_LIGHT;
-	uint8_t count_fotores = 0;
+	operation_algoritm_t mission_status = OA_WAIT_GPS;
 
-	float fotores_aver = 2; //???????
+	float fotores_aver = 0.0f;
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
 
@@ -407,9 +517,9 @@ void appmain(void)
 		float gy = lsm6ds3_from_fs2000dps_to_mdps(buf_lsm_gy[1]) / 1000.0 * M_PI / 180;
 		float gz = lsm6ds3_from_fs2000dps_to_mdps(buf_lsm_gy[2]) / 1000.0 * M_PI / 180;
 
-		float mx_raw = (float)buf_lis2[0];
-		float my_raw = (float)buf_lis2[1];
-		float mz_raw = (float)buf_lis2[2];
+		float mx_raw =  (float)buf_lis2[1];
+		float my_raw = -(float)buf_lis2[0];
+		float mz_raw = -(float)buf_lis2[2];
 
 		mag_calibrated_t mag = calibrate_magnetometer(mx_raw, my_raw, mz_raw);
 
@@ -439,26 +549,45 @@ void appmain(void)
 
 		switch (mission_status)
 		{
-			case OA_CHECK_LIGHT:
-				if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10) == GPIO_PIN_RESET)
-				{
-					// собираю освещенность
-					count_fotores = 0;
-					fotores_aver = 0; //????????????????
-					for (int i = 0; i < 10; i++)
-					{
-						fotores_aver += fotores_read_data();
-						count_fotores++;
-					}
-					fotores_aver = fotores_aver / count_fotores;
-					mission_status = OA_PREPARATION;
-					time = HAL_GetTick();
+		case OA_WAIT_GPS:
+		    if (packet.fix_gps == 0)
+		    {
+		        if ((HAL_GetTick() / 300) % 2)
+		            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
+		        else
+		            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_RESET);
 
-					dataGPS.latitude_target_gps =  55;//packet.latitude_gps;
-					dataGPS.longitude_target_gps = 37;//packet.longitude_gps;
-					dataGPS.altitude_target_gps = 120;//packet.altitude_gps;
-				}
-				break;
+		        break;
+		    }
+
+		    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_RESET);
+		    mission_status = OA_CHECK_LIGHT;
+		    break;
+
+		case OA_CHECK_LIGHT:
+
+		    if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10) == GPIO_PIN_RESET)
+		    {
+		    	fotores_aver = 0.0f;
+
+		    	for (int i = 0; i < 10; i++)
+		    	{
+		    	    fotores_aver += fotores_read_data();
+		    	    HAL_Delay(10);
+		    	}
+
+		    	fotores_aver /= 10.0f;
+
+		        // сохранить стартовые координаты
+		        dataGPS.latitude_target_gps  = packet.latitude_gps;
+		        dataGPS.longitude_target_gps = packet.longitude_gps;
+		        dataGPS.altitude_target_gps  = packet.altitude_gps;
+
+		        mission_status = OA_PREPARATION;
+		        time = HAL_GetTick();
+		    }
+
+		    break;
 
 			case OA_PREPARATION:
 				if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10) == GPIO_PIN_SET)
@@ -503,32 +632,32 @@ void appmain(void)
 			        last_control_altitude_time = HAL_GetTick();
 			        altitude_control_started = 1;
 			    }
-			    packet.fix_gps = 1;//this
 			    if (packet.fix_gps)
 			    {
 			        rectangular_system_data_t target_vector;
-			        packet.latitude_gps = 55.05;
-					packet.longitude_gps = 37;
-					packet.altitude_gps = 120;
 
-			        target_vector = math(dataGPS.latitude_target_gps, dataGPS.longitude_target_gps, dataGPS.altitude_target_gps, packet.latitude_gps, packet.longitude_gps, packet.altitude_gps);
+					target_vector = math(dataGPS.latitude_target_gps, dataGPS.longitude_target_gps, dataGPS.altitude_target_gps, packet.latitude_gps, packet.longitude_gps, packet.altitude_gps, q);
 
-			        float alpha = atan2f(target_vector.Y, target_vector.X) * 180 / M_PI;
+					float alpha = atan2f(target_vector.Y, target_vector.X) * 180.0f / M_PI;
 
-			        if (alpha > 10)
-			        {
-			        	control_set(CONTROL_RIGHT);
-			        	packet.corner_right = alpha;
-			        }
-			        else if (alpha < -10)
-			        {
-			        	control_set(CONTROL_LEFT);
-			        	packet.corner_left = alpha;
-			        }
-			        else
-			        {
-			        	control_set(CONTROL_FORWARD);
-			        }
+					packet.alpha = alpha;
+					packet.target_body_x = target_vector.X;
+					packet.target_body_y = target_vector.Y;
+					packet.target_body_z = target_vector.Z;
+
+					control_wings_by_alpha(alpha);
+
+					packet.corner_right = 0;
+					packet.corner_left = 0;
+
+					if (alpha > 0)
+					{
+					    packet.corner_right = alpha;
+					}
+					else
+					{
+					    packet.corner_left = alpha;
+					}
 			    }
 
 			    if (HAL_GetTick() - last_control_altitude_time >= 1000)
@@ -555,7 +684,7 @@ void appmain(void)
 
 
 			case OA_DECLINE:
-					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET); // Пищалка ON
+				HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET); // Пищалка ON
 				break;
 		}
 

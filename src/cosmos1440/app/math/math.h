@@ -13,18 +13,13 @@
 #include "stm32f1xx.h"
 
 typedef struct {
-    float right;
-    float left;
-} direction_t;
-
-typedef struct {
     float X;
     float Y;
     float Z;
 } rectangular_system_data_t;
 
 
-rectangular_system_data_t math(float latitude_target_gps, float longitude_target_gps, float altitude_target_gps, float latitude_now_gps, float longitude_now_gps, float altitude_now_gps);
+rectangular_system_data_t math(float latitude_target_gps, float longitude_target_gps, float altitude_target_gps, float latitude_now_gps, float longitude_now_gps, float altitude_now_gps, const float q[4]);
 
 float conversion_radians(float num);
 
