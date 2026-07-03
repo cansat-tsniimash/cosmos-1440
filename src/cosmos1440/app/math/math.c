@@ -77,6 +77,7 @@ void transformation_into_topocentric_system(float latitude_now, float longitude_
     enu->Z = cosf(lat) * cosf(lon) * dX + cosf(lat) * sinf(lon) * dY + sinf(lat) * dZ;
 }
 
+//нужен q · v · q⁻¹ или q⁻¹ · v · q
 
 void quaternion_rotate(rectangular_system_data_t *v, const float q[4])
 {
@@ -89,12 +90,14 @@ void quaternion_rotate(rectangular_system_data_t *v, const float q[4])
     float y = v->Y;
     float z = v->Z;
 
-    float iw =  qx*x + qy*y + qz*z;
-    float ix =  qw*x - qz*y + qy*z;
-    float iy =  qw*y + qz*x - qx*z;
-    float iz =  qw*z - qy*x + qx*y;
+    // t = q * v
+    float tw = -qx * x - qy * y - qz * z;
+    float tx =  qw * x + qy * z - qz * y;
+    float ty =  qw * y - qx * z + qz * x;
+    float tz =  qw * z + qx * y - qy * x;
 
-    v->X =  iw*qx + ix*qw + iy*qz - iz*qy;
-    v->Y =  iw*qy - ix*qz + iy*qw + iz*qx;
-    v->Z =  iw*qz + ix*qy - iy*qx + iz*qw;
+    // v' = t * q^-1
+    v->X = -tw * qx + tx * qw - ty * qz + tz * qy;
+    v->Y = -tw * qy + tx * qz + ty * qw - tz * qx;
+    v->Z = -tw * qz - tx * qy + ty * qx + tz * qw;
 }

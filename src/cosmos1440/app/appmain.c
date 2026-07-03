@@ -247,6 +247,9 @@ float move_smooth(float current, float target, float max_step)
     return target;
 }
 
+float servo1_cmd_global = ZERO_1 + 135;
+float servo2_cmd_global = ZERO_2 - 45;
+
 void control_wings_by_alpha(float alpha)
 {
     static float servo1_now = ZERO_1 + 135;
@@ -319,6 +322,9 @@ void control_wings_by_alpha(float alpha)
 
     servo1_now = move_smooth(servo1_now, target1, max_step);
     servo2_now = move_smooth(servo2_now, target2, max_step);
+
+    servo1_cmd_global = servo1_now;
+    servo2_cmd_global = servo2_now;
 
     setPWM_1(servo1_now);
     setPWM_2(servo2_now);
@@ -646,6 +652,9 @@ void appmain(void)
 					packet.target_body_z = target_vector.Z;
 
 					control_wings_by_alpha(alpha);
+
+					packet.servo1_cmd = servo1_cmd_global;
+					packet.servo2_cmd = servo2_cmd_global;
 
 					packet.corner_right = 0;
 					packet.corner_left = 0;
