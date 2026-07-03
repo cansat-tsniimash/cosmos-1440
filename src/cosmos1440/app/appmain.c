@@ -328,7 +328,7 @@ void appmain(void)
 {
 	packet_t packet = {0};
 	packet.start = 0xAAAA;
-	packet.team_id = 0xBBBB;
+	packet.team_id = 0xBA1A;
 
 	// занулил значения для целевой точки
 	dataGPS_t dataGPS = {0};
