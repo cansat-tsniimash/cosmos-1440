@@ -48,6 +48,7 @@ float latitude_gps; // OK
 float longitude_gps; // OK
 float altitude_gps; // OK
 uint8_t fix_gps; // OK
+float altitude_baro; // высота по барометру
 uint16_t fotores;
 int16_t mag[3]; // OK
 int16_t ds18b20; // OK
@@ -481,7 +482,9 @@ void appmain(void)
 		bme280_get_sensor_data(BME280_PRESS | BME280_TEMP, &bmp_data, &bmp);
 		packet.temp = bmp_data.temperature * 100;
 		packet.pressure = bmp_data.pressure;
-		float altitude = 44330 * (1 - pow((float)bmp_data.pressure / first_pressure, (1.0 / 5.255)));
+		float altitude_baro = 44330 * (1 - powf((float)bmp_data.pressure / first_pressure, 1 / 5.255));
+
+		packet.altitude_baro = altitude_baro;
 
 		lsm6ds3_acceleration_raw_get(&lsm6ds3, buf_lsm_xl);
 		lsm6ds3_angular_rate_raw_get(&lsm6ds3, buf_lsm_gy);
@@ -502,7 +505,6 @@ void appmain(void)
 		{
 			if (neo6mv2_work())
 			{
-				break;
 			}
 		}
 
@@ -634,7 +636,7 @@ void appmain(void)
 			case OA_CONTROL:
 			    if (altitude_control_started == 0)
 			    {
-			        last_control_altitude = altitude;
+			        last_control_altitude = altitude_baro;
 			        last_control_altitude_time = HAL_GetTick();
 			        altitude_control_started = 1;
 			    }
@@ -671,7 +673,7 @@ void appmain(void)
 
 			    if (HAL_GetTick() - last_control_altitude_time >= 1000)
 			    {
-			        if (fabsf(altitude - last_control_altitude) < 5.0f)
+			        if (fabsf(altitude_baro - last_control_altitude) < 5.0f)
 			        {
 			            stable_altitude_count++;
 			        }
@@ -685,7 +687,7 @@ void appmain(void)
 			            mission_status = OA_DECLINE;
 			        }
 
-			        last_control_altitude = altitude;
+			        last_control_altitude = altitude_baro;
 			        last_control_altitude_time = HAL_GetTick();
 			    }
 
