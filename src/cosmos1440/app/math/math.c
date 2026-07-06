@@ -81,7 +81,7 @@ void transformation_into_topocentric_system(float latitude_now, float longitude_
 
 void quaternion_rotate(rectangular_system_data_t *v, const float q[4])
 {
-    float qw = q[0];
+    float qw = -q[0];
     float qx = q[1];
     float qy = q[2];
     float qz = q[3];

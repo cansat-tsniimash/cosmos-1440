@@ -56,16 +56,12 @@ float quaternion_a;
 float quaternion_b;
 float quaternion_c;
 float quaternion_d;
-int16_t corner_right;
-int16_t corner_left;
 
 /* новые данные алгоритма управления */
 float alpha;
-float target_body_x;
-float target_body_y;
-float target_body_z;
 float servo1_cmd;
 float servo2_cmd;
+uint8_t control_mode;
 
 uint8_t cosmos1440_sum;
 } packet_t;
@@ -78,119 +74,26 @@ typedef struct {
 	float altitude_target_gps;
 } dataGPS_t;
 
-#define ZERO_1 (10) // 10
-#define ZERO_2 (170) // 170  A17 -
+#define ZERO_1 (0) // 10
+#define ZERO_2 (135) // 170  A17 -
 
-#define SERVO_DT_MS          20
-#define SERVO_SPEED_DEG_S    45.0f
-#define ALPHA_DEAD_ZONE      10.0f
-#define ALPHA_MAX            90.0f
-#define WING_MAX_DELTA       55.0f
-#define SIGN_CHANGE_NEUTRAL  1
+#define SERVO_DT_MS          (20)
+#define SERVO_SPEED_DEG_S    (45.0f)
+#define ALPHA_DEAD_ZONE      (10.0f)
+#define ALPHA_MAX            (90.0f)
+#define WING_MAX_DELTA       (55.0f)
+#define SERVO_TURN			 (20)
 
 typedef enum
 {
     CONTROL_TRANSPORT = 0,
     CONTROL_FORWARD = 1,
-	CONTROL_DEPLOYMENT = 2,
-    CONTROL_LEFT = 3,
-    CONTROL_RIGHT = 4
+    CONTROL_LEFT = 2,
+    CONTROL_RIGHT = 3
 
 } control_state_t;
 
 #define ORG_PACK_SIZE (27)
-
-void setPWM_1(float angle)
-{
-	if (angle > 180)
-	{
-		angle = 180;
-	}
-	else if (angle < 0) {
-		angle = 0;
-	}
-
-	const uint16_t value_min = 500;//1450;
-	const uint16_t value_max = 2500;//7350;
-	const uint16_t value = (value_max - value_min) * angle / (180) + value_min;
-    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, value);
-}
-
-void setPWM_2(float angle)
-{
-	if (angle > 180)
-	{
-		angle = 180;
-	}
-	else if (angle < 0) {
-		angle = 0;
-	}
-
-	const uint16_t value_min = 500;
-	const uint16_t value_max = 2500;
-	const uint16_t value = (value_max - value_min) * angle / (180) + value_min;
-    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, value);
-}
-
-void control_transport(void)
-{
-    setPWM_1(ZERO_1);
-    setPWM_2(ZERO_2);
-}
-
-void control_deployment(void)
-{
-	setPWM_1(ZERO_1 + 90);
-	setPWM_2(ZERO_2);
-}
-
-void control_forward(void)
-{
-    setPWM_1(ZERO_1 + 135);
-    setPWM_2(ZERO_2 - 45);
-}
-
-void control_left(void)
-{
-    setPWM_1(ZERO_1 + 145);
-    setPWM_2(ZERO_2 - 10);
-}
-
-void control_right(void)
-{
-    setPWM_1(ZERO_1 + 85);
-    setPWM_2(ZERO_2 - 55);
-}
-
-void control_set(control_state_t state)
-{
-    switch (state)
-    {
-        case CONTROL_TRANSPORT:
-            control_transport();
-            break;
-
-        case CONTROL_DEPLOYMENT:
-        	control_deployment();
-            break;
-
-        case CONTROL_FORWARD:
-            control_forward();
-            break;
-
-        case CONTROL_LEFT:
-            control_left();
-            break;
-
-        case CONTROL_RIGHT:
-            control_right();
-            break;
-
-        default:
-        	control_transport();
-            break;
-    }
-}
 
 typedef struct
 {
@@ -230,105 +133,102 @@ mag_calibrated_t calibrate_magnetometer(float mx_raw, float my_raw, float mz_raw
     return mag;
 }
 
-float clampf(float x, float min, float max)
-{
-    if (x > max) return max;
-    if (x < min) return min;
-    return x;
-}
-
-float move_smooth(float current, float target, float max_step)
-{
-    if (target > current + max_step)
-        return current + max_step;
-
-    if (target < current - max_step)
-        return current - max_step;
-
-    return target;
-}
-
 float servo1_cmd_global = ZERO_1 + 135;
 float servo2_cmd_global = ZERO_2 - 45;
 
-void control_wings_by_alpha(float alpha)
+void setPWM_1(float angle)
 {
-    static float servo1_now = ZERO_1 + 135;
-    static float servo2_now = ZERO_2 - 45;
+	if (angle > 180)
+	{
+		angle = 180;
+	}
+	else if (angle < 0) {
+		angle = 0;
+	}
 
-    static int8_t last_turn_sign = 0;
-    static uint32_t last_update_ms = 0;
+	servo1_cmd_global = angle;
 
-    uint32_t now = HAL_GetTick();
+	const uint16_t value_min = 500;//1450;
+	const uint16_t value_max = 2500;//7350;
+	const uint16_t value = (value_max - value_min) * angle / (180) + value_min;
+    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, value);
+}
 
-    if (now - last_update_ms < SERVO_DT_MS)
-        return;
+void setPWM_2(float angle)
+{
+	if (angle > 180)
+	{
+		angle = 180;
+	}
+	else if (angle < 0) {
+		angle = 0;
+	}
 
-    float dt = (now - last_update_ms) / 1000.0f;
-    last_update_ms = now;
+	servo2_cmd_global = angle;
 
-    if (dt <= 0.0f || dt > 0.2f)
-        dt = SERVO_DT_MS / 1000.0f;
+	const uint16_t value_min = 500;
+	const uint16_t value_max = 2500;
+	const uint16_t value = (value_max - value_min) * angle / (180) + value_min;
+    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, value);
+}
 
-    int8_t turn_sign = 0;
+void control_transport(void)
+{
+    setPWM_1(0);
+    setPWM_2(135);
+}
 
+uint8_t control_wings_by_alpha(float alpha)
+{
+    float control_mode = 0;
+    float servo1_target = 0;
+    float servo2_target = 0;
+
+    // По часовой
     if (alpha > ALPHA_DEAD_ZONE)
-        turn_sign = 1;      // направо
-    else if (alpha < -ALPHA_DEAD_ZONE)
-        turn_sign = -1;     // налево
-
-    float target1 = ZERO_1 + 135;
-    float target2 = ZERO_2 - 45;
-
-    if (SIGN_CHANGE_NEUTRAL && last_turn_sign != 0 && turn_sign != 0 && turn_sign != last_turn_sign)
     {
-        target1 = ZERO_1 + 135;
-        target2 = ZERO_2 - 45;
-
-        if (fabsf(servo1_now - target1) < 3.0f && fabsf(servo2_now - target2) < 3.0f)
-        {
-            last_turn_sign = turn_sign;
-        }
+    	control_mode = 2;
+    	servo1_target = ZERO_1 + 145;
+    	servo2_target = ZERO_2 - 10;
     }
+    // Против
+    else if (alpha < -ALPHA_DEAD_ZONE)
+    {
+        control_mode = 3;
+    	servo1_target = ZERO_1 + 85;
+    	servo2_target = ZERO_2 - 55;
+    }
+    // Прямо
     else
     {
-        last_turn_sign = turn_sign;
-
-        float k = fabsf(alpha) / ALPHA_MAX;
-        k = clampf(k, 0.0f, 1.0f);
-
-        float delta = k * WING_MAX_DELTA;
-
-        if (turn_sign > 0)
-        {
-            // направо
-            target1 = ZERO_1 + 135 - delta;
-            target2 = ZERO_2 - 45 - delta * 0.18f;
-        }
-        else if (turn_sign < 0)
-        {
-            // налево
-            target1 = ZERO_1 + 135 + delta * 0.18f;
-            target2 = ZERO_2 - 45 + delta;
-        }
-        else
-        {
-            // прямо
-            target1 = ZERO_1 + 135;
-            target2 = ZERO_2 - 45;
-        }
+    	control_mode = 1;
+    	servo1_target = ZERO_1 + 135;
+    	servo2_target = -90;
     }
 
-    float max_step = SERVO_SPEED_DEG_S * dt;
 
-    servo1_now = move_smooth(servo1_now, target1, max_step);
-    servo2_now = move_smooth(servo2_now, target2, max_step);
+    if ((servo1_target - servo1_cmd_global) > SERVO_TURN)
+    {
+    	servo1_target = servo1_cmd_global + 20;
+    }
+    else if ((servo1_target - servo1_cmd_global) < SERVO_TURN)
+    {
+    	servo1_target = servo1_cmd_global - 20;
+    }
 
-    servo1_cmd_global = servo1_now;
-    servo2_cmd_global = servo2_now;
+    if ((servo2_target - servo2_cmd_global) > SERVO_TURN)
+    {
+    	servo2_target = servo2_cmd_global + 20;
+    }
+    else if ((servo2_target - servo2_cmd_global) < SERVO_TURN)
+	{
+		servo2_target = servo2_cmd_global - 20;
+	}
 
-    setPWM_1(servo1_now);
-    setPWM_2(servo2_now);
+    setPWM_1(servo1_target);
+    setPWM_2(servo2_target);
+
+    return control_mode;
 }
 
 void appmain(void)
@@ -477,6 +377,7 @@ void appmain(void)
 
 	while (1)
 	{
+
 		packet.fotores = fotores_read_data() * 1000;
 
 		bme280_get_sensor_data(BME280_PRESS | BME280_TEMP, &bmp_data, &bmp);
@@ -546,7 +447,7 @@ void appmain(void)
 		packet.latitude_gps = gps_data.latitude;
 		packet.longitude_gps = gps_data.longitude;
 		packet.altitude_gps = gps_data.altitude;
-		packet.fix_gps = gps_data.fixQuality;
+		packet.fix_gps = (gps_data.fixQuality << 5) | (gps_data.cookie & 0x1F);
 
 		if (HAL_GetTick() - ds_stert_time >= 750)
 		{
@@ -558,6 +459,9 @@ void appmain(void)
 		switch (mission_status)
 		{
 		case OA_WAIT_GPS:
+
+		    control_transport();
+
 		    if (packet.fix_gps == 0)
 		    {
 		        if ((HAL_GetTick() / 300) % 2)
@@ -569,6 +473,7 @@ void appmain(void)
 		    }
 
 		    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_RESET);
+
 		    mission_status = OA_CHECK_LIGHT;
 		    break;
 
@@ -640,38 +545,31 @@ void appmain(void)
 			        last_control_altitude_time = HAL_GetTick();
 			        altitude_control_started = 1;
 			    }
-			    if (packet.fix_gps)
+
+			    if (packet.fix_gps || 1)
 			    {
 			        rectangular_system_data_t target_vector;
+
+			        packet.latitude_gps = 55.05;
+			        packet.longitude_gps = 37;
+			        packet.altitude_gps = 200;
+			        dataGPS.latitude_target_gps = 55;
+			        dataGPS.longitude_target_gps = 37;
+			        dataGPS.altitude_target_gps = 200;
 
 					target_vector = math(dataGPS.latitude_target_gps, dataGPS.longitude_target_gps, dataGPS.altitude_target_gps, packet.latitude_gps, packet.longitude_gps, packet.altitude_gps, q);
 
 					float alpha = atan2f(target_vector.Y, target_vector.X) * 180.0f / M_PI;
 
 					packet.alpha = alpha;
-					packet.target_body_x = target_vector.X;
-					packet.target_body_y = target_vector.Y;
-					packet.target_body_z = target_vector.Z;
 
-					control_wings_by_alpha(alpha);
+					packet.control_mode = control_wings_by_alpha(alpha);
 
 					packet.servo1_cmd = servo1_cmd_global;
 					packet.servo2_cmd = servo2_cmd_global;
-
-					packet.corner_right = 0;
-					packet.corner_left = 0;
-
-					if (alpha > 0)
-					{
-					    packet.corner_right = alpha;
-					}
-					else
-					{
-					    packet.corner_left = alpha;
-					}
 			    }
 
-			    if (HAL_GetTick() - last_control_altitude_time >= 1000)
+			    if ((HAL_GetTick() - last_control_altitude_time >= 1000) && (altitude_baro < -100))
 			    {
 			        if (fabsf(altitude_baro - last_control_altitude) < 5.0f)
 			        {
