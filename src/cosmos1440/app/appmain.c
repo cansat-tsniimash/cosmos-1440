@@ -242,7 +242,7 @@ void appmain(void)
 
 	packet_t packet = {0};
 	packet.start = 0xAAAA;
-	packet.team_id = 0xBA1A;
+	packet.team_id = 0x1ABA;
 
 	packet.control_mode = CONTROL_TRANSPORT;
 	control_transport();
@@ -561,7 +561,7 @@ void appmain(void)
 				altitude_control_started = 1;
 			}
 
-			if (packet.fix_gps) // TODO: Убрать
+			if (packet.fix_gps)
 			{
 				rectangular_system_data_t target_vector;
 
@@ -588,7 +588,7 @@ void appmain(void)
 				control_wings_by_alpha(0);
 			}
 
-			if ((HAL_GetTick() - last_control_altitude_time >= 1000) && (altitude_baro < 1)) // TODO: вместо || поставить && << 1?!?!?!?!
+			if ((HAL_GetTick() - last_control_altitude_time >= 1000) && (altitude_baro < 50))
 			{
 				if (fabsf(altitude_baro - last_control_altitude) < 5.0f)
 				{
