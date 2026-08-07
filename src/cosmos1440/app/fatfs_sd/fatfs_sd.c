@@ -541,6 +541,7 @@ DRESULT SD_disk_ioctl(BYTE drv, BYTE ctrl, void *buff)
 				}
 				res = RES_OK;
 			}
+			break; // TODO: ПОСТАВИЛ СЮДА break;
 		default:
 			res = RES_PARERR;
 		}

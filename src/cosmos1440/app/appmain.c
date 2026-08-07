@@ -340,7 +340,10 @@ void appmain(void)
 	HAL_Delay(100);
 	e220_set_channel(&e220, 33);
 	HAL_Delay(50);
-	e220_set_addr(&e220, 0xAAAA);
+	e220_set_addr(&e220, 0
+
+
+	);
 	HAL_Delay(50);
 	e220_set_reg0(&e220, E220_AIR_RATE_19P2K, E220_UART_RATE_115200, E220_SERIAL_PARITY_8N1);
 	HAL_Delay(50);
@@ -389,6 +392,9 @@ void appmain(void)
 
 	while (1)
 	{
+
+		control_transport();
+
 		packet.fotores = fotores_read_data() * 1000;
 
 		bme280_get_sensor_data(BME280_PRESS | BME280_TEMP, &bmp_data, &bmp);
@@ -397,6 +403,7 @@ void appmain(void)
 		float altitude_baro = 44330 * (1 - powf((float)bmp_data.pressure / first_pressure, 1 / 5.255));
 
 		packet.altitude_baro = altitude_baro;
+
 
 		lsm6ds3_acceleration_raw_get(&lsm6ds3, buf_lsm_xl);
 		lsm6ds3_angular_rate_raw_get(&lsm6ds3, buf_lsm_gy);
@@ -554,23 +561,13 @@ void appmain(void)
 				altitude_control_started = 1;
 			}
 
-			if (packet.fix_gps)
+			if (packet.fix_gps) // TODO: Убрать
 			{
 				rectangular_system_data_t target_vector;
 
-				// TODO: Убрать
-
-				/*packet.latitude_gps = 55.0;
-				packet.longitude_gps = 37;
-				packet.altitude_gps = 200;
-				dataGPS.latitude_target_gps = 55.05;
-				dataGPS.longitude_target_gps = 37;
-				dataGPS.altitude_target_gps = 200;*/
-				// TODO:
-
 				target_vector = math(dataGPS.latitude_target_gps, dataGPS.longitude_target_gps, dataGPS.altitude_target_gps, packet.latitude_gps, packet.longitude_gps, packet.altitude_gps, q);
 
-				alpha = atan2f(target_vector.X, -target_vector.Y) * 180.0f / M_PI; //TODO: вернуть
+				alpha = atan2f(target_vector.X, -target_vector.Y) * 180.0f / M_PI;
 
 				alpha = alpha + ALPHA_MAG_COEF;
 				if (alpha > 180)
@@ -591,7 +588,7 @@ void appmain(void)
 				control_wings_by_alpha(0);
 			}
 
-			if ((HAL_GetTick() - last_control_altitude_time >= 1000) && (altitude_baro < 1))
+			if ((HAL_GetTick() - last_control_altitude_time >= 1000) && (altitude_baro < 1)) // TODO: вместо || поставить && << 1?!?!?!?!
 			{
 				if (fabsf(altitude_baro - last_control_altitude) < 5.0f)
 				{
