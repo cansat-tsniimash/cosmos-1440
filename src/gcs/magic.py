@@ -7,20 +7,20 @@ class Parser:
     def parse(self, data: bytes):
         rv = []
         data = self.leftowers + data
-        while len(data) >= 74:
+        while len(data) >= 87:
             while len(data) > 2 and (data[0] != 0xaa or data[1] != 0xaa):
                 data = data[1:]
             
-            if len(data) < 74:
+            if len(data) < 87:
                 break
 
-            packet = data[:74]
+            packet = data[:87]
             cchk = packet[0]
             for b in packet[1:]:
                 cchk = cchk ^ b
 
             if cchk == 0:
-                walues = struct.unpack("<2HIhI3h3hBHB3fBH3hh4fhhB", packet)
+                walues = struct.unpack("<2HIhI3h3hBHB3fBfH3hh4f3fBB", packet)
                 rv.append(walues)
                 data = data[27:]
             else:
@@ -51,13 +51,16 @@ def convert(valeus: tuple):
     valeus[17],
     valeus[18],
     valeus[19],
-    valeus[20]/16,
-    valeus[21],
+    valeus[20],
+    valeus[21]/16,
     valeus[22],
     valeus[23],
     valeus[24],
     valeus[25],
     valeus[26],
+    valeus[27],
+    valeus[28],
+    valeus[29],
 )
 
 def lsm6ds3_from_fs2g_to_mg(lsb: int) -> float:

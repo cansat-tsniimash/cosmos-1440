@@ -238,8 +238,6 @@ uint8_t control_wings_by_alpha(float alpha)
 
 void appmain(void)
 {
-
-
 	packet_t packet = {0};
 	packet.start = 0xAAAA;
 	packet.team_id = 0x1ABA;
@@ -340,10 +338,7 @@ void appmain(void)
 	HAL_Delay(100);
 	e220_set_channel(&e220, 33);
 	HAL_Delay(50);
-	e220_set_addr(&e220, 0
-
-
-	);
+	e220_set_addr(&e220, 0);
 	HAL_Delay(50);
 	e220_set_reg0(&e220, E220_AIR_RATE_19P2K, E220_UART_RATE_115200, E220_SERIAL_PARITY_8N1);
 	HAL_Delay(50);
@@ -361,7 +356,7 @@ void appmain(void)
 	FIL paket_fille;
 	char paker_path[] = "paket.bin";
 	FRESULT rizult_mount = f_mount(&fleska, "", 1);
-	FRESULT rizult_paket = 255;
+	FRESULT rizult_paket = 255; // TODO: ДОБАВИЛИ НОВЫЕ ДАННЫЕ В ПАКЕТ!
 	UINT byte_count;
 	uint32_t time = HAL_GetTick();
 
@@ -474,6 +469,7 @@ void appmain(void)
 			ds_stert_time = HAL_GetTick();
 			ds18b20_conv();
 		}
+		packet.status = mission_status;
 
 		switch (mission_status)
 		{
